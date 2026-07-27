@@ -385,7 +385,7 @@ router.get('/me', authenticateJWT, async (req, res, next) => {
       is_verified: user.is_verified,
       oneid: user.oneid,
       religion: user.religion,
-      maritalStatus,
+      maritalStatus: user.maritalStatus,
       division: user.division,
       district: user.district,
       upazila: user.upazila,
