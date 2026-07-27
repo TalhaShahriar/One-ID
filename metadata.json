@@ -1,0 +1,6 @@
+{
+  "name": "OneID Bangladesh",
+  "description": "Secure unified citizen e-governance platform featuring decentralized blockchain balloting, NID synchronization, and verification foundations.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

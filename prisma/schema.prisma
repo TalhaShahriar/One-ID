@@ -1,0 +1,562 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  VOTER
+  CANDIDATE
+  TAX_ADMIN
+  VEHICLE_ADMIN
+  PROPERTY_ADMIN
+  CIVIL_REGISTRY_ADMIN
+  KAZI_ADMIN
+  LOCAL_AUTHORITY_ADMIN
+  SUPER_ADMIN
+}
+
+enum ElectionType {
+  NATIONAL
+  LOCAL
+  PRESIDENTIAL
+}
+
+enum ElectionStatus {
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  RESULTS_PUBLISHED
+}
+
+enum CandidateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FlagType {
+  IP_RATE_SPIKE
+  DEVICE_COLLISION
+  OFF_HOURS_ACTIVITY
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Religion {
+  ISLAM
+  HINDUISM
+  CHRISTIANITY
+  BUDDHISM
+  OTHER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCE_PENDING
+  DIVORCED
+  WIDOWED
+}
+
+model User {
+  id            Int             @id @default(autoincrement())
+  name          String
+  email         String          @unique
+  phone         String
+  nid_hash      String
+  password_hash String
+  role          Role            @default(VOTER)
+  constituency  String
+  is_verified   Boolean         @default(false)
+  otp           String?
+  otp_expires_at DateTime?
+  created_at    DateTime        @default(now())
+  oneid          String?   @unique
+  religion       Religion @default(ISLAM)
+  maritalStatus  MaritalStatus @default(SINGLE)
+  division       String?
+  district       String?
+  upazila        String?
+  dateOfBirth    DateTime?
+  occupation     String?
+  isActive       Boolean @default(true)
+
+  candidates     Candidate[]
+  voter_elections VoterElection[]
+  audit_logs     AuditLog[]
+  anomaly_flags  AnomalyFlag[]
+  tax_profile    TaxProfile?
+  drivingLicense DrivingLicense?
+  vehicles       Vehicle[]
+  properties     Property[]
+  groomMarriages MarriageRecord[] @relation("GroomMarriages")
+  brideMarriages MarriageRecord[] @relation("BrideMarriages")
+  webAuthnCredentials WebAuthnCredential[]
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(uuid())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    String
+  counter      BigInt   @default(0)
+  transports   String?
+  deviceType   String   @default("singleDevice")
+  backedUp     Boolean  @default(false)
+  friendlyName String   @default("Biometric Touch ID / Face ID Key")
+  created_at   DateTime @default(now())
+}
+
+model Election {
+  id                  Int            @id @default(autoincrement())
+  title               String
+  description         String
+  election_type       ElectionType
+  administrative_unit String
+  constituency_scope  String
+  status              ElectionStatus @default(SCHEDULED)
+  start_at            DateTime
+  end_at              DateTime
+  created_by          Int
+  created_at          DateTime       @default(now())
+
+  candidates     Candidate[]
+  votes          Vote[]
+  audit_logs     AuditLog[]
+}
+
+model Party {
+  id           Int         @id @default(autoincrement())
+  name         String
+  abbreviation String
+  symbol_url   String
+  created_at   DateTime    @default(now())
+  
+  candidates   Candidate[]
+}
+
+model Candidate {
+  id               Int             @id @default(autoincrement())
+  user_id          Int
+  election_id      Int
+  party_id         Int
+  constituency     String
+  photo_url        String
+  date_of_birth    DateTime
+  education        String
+  occupation       String
+  manifesto        String
+  status           CandidateStatus @default(PENDING)
+  rejection_reason String?
+  approved_at      DateTime?
+  created_at       DateTime        @default(now())
+
+  user             User            @relation(fields: [user_id], references: [id])
+  election         Election        @relation(fields: [election_id], references: [id])
+  party            Party           @relation(fields: [party_id], references: [id])
+  votes            Vote[]
+}
+
+model Vote {
+  id           String      @id @default(uuid())
+  election_id  Int
+  candidate_id Int
+  constituency String
+  cast_at      DateTime    @default(now())
+  prev_hash    String
+  vote_hash    String
+
+  election     Election    @relation(fields: [election_id], references: [id])
+  candidate    Candidate   @relation(fields: [candidate_id], references: [id])
+  vote_tokens  VoteToken[]
+}
+
+model VoteToken {
+  id      Int    @id @default(autoincrement())
+  token   String @unique @default(uuid())
+  vote_id String @unique
+
+  vote    Vote   @relation(fields: [vote_id], references: [id])
+}
+
+model VoterElection {
+  voter_id    Int
+  election_id Int
+  has_voted   Boolean   @default(false)
+  voted_at    DateTime?
+
+  user        User      @relation(fields: [voter_id], references: [id])
+
+  @@unique([voter_id, election_id])
+}
+
+model AuditLog {
+  id          Int       @id @default(autoincrement())
+  user_id     Int?
+  event_type  String
+  description String
+  ip_address  String?
+  election_id Int?
+  created_at  DateTime  @default(now())
+
+  user        User?     @relation(fields: [user_id], references: [id])
+  election    Election? @relation(fields: [election_id], references: [id])
+}
+
+model AnomalyFlag {
+  id           Int         @id @default(autoincrement())
+  flag_type    FlagType
+  ip_address   String
+  voter_id     Int?
+  election_id  Int?
+  severity     Severity
+  details      Json
+  created_at   DateTime    @default(now())
+  is_reviewed  Boolean     @default(false)
+
+  user         User?       @relation(fields: [voter_id], references: [id])
+}
+
+enum LedgerSector {
+  VOTE
+  TAX
+  VEHICLE
+  PROPERTY
+  CIVIL_REGISTRY
+}
+
+model LedgerRecord {
+  id             String       @id @default(uuid())
+  sector         LedgerSector
+  sequenceNumber Int
+  payload        Json
+  timestamp      DateTime     @default(now())
+  prevHash       String
+  recordHash     String
+  signature      String
+  merkleBlockId  String?
+  merkleBlock    MerkleBlock? @relation(fields: [merkleBlockId], references: [id])
+  
+  @@unique([sector, sequenceNumber])
+  @@index([sector, sequenceNumber])
+}
+
+model MerkleBlock {
+  id            String        @id @default(uuid())
+  sector        LedgerSector
+  startSequence Int
+  endSequence   Int
+  merkleRoot    String
+  sealedAt      DateTime      @default(now())
+  records       LedgerRecord[]
+  
+  @@index([sector])
+}
+
+model TaxProfile {
+  id           String      @id @default(uuid())
+  citizenOneId String      @unique
+  citizen      User        @relation(fields: [citizenOneId], references: [oneid])
+  tin          String      @unique
+  tinIssuedAt  DateTime    @default(now())
+  returns      TaxReturn[]
+}
+
+model TaxReturn {
+  id             String           @id @default(uuid())
+  taxProfileId   String
+  taxProfile     TaxProfile       @relation(fields: [taxProfileId], references: [id])
+  taxYear        Int
+  grossIncome    Float
+  taxableIncome  Float
+  calculatedTax  Float
+  minimumTax     Float
+  finalTax       Float
+  paymentStatus  TaxPaymentStatus @default(UNPAID)
+  paidAmount     Float?
+  paidAt         DateTime?
+  receiptNumber  String?          @unique
+  ledgerRecordId String?
+  anomalyFlag    Boolean          @default(false)
+  anomalyReason  String?
+  submittedAt    DateTime         @default(now())
+  @@unique([taxProfileId, taxYear])
+}
+
+enum TaxPaymentStatus {
+  UNPAID
+  PAID
+  PARTIAL
+  WAIVED
+}
+
+model DrivingLicense {
+  id              String           @id @default(uuid())
+  licenseNumber   String           @unique
+  citizenOneId    String           @unique
+  citizen         User             @relation(fields: [citizenOneId], references: [oneid])
+  category        LicenseCategory
+  status          LicenseStatus    @default(PENDING)
+  issueDate       DateTime?
+  expiryDate      DateTime?
+  bloodGroup      String?
+  rejectionReason String?
+  violations      TrafficViolation[]
+  renewalCount    Int              @default(0)
+  ledgerRecordId  String?
+}
+
+model Vehicle {
+  id                String            @id @default(uuid())
+  registrationNo    String            @unique
+  type              VehicleType
+  make              String
+  model             String
+  year              Int
+  color             String
+  engineNo          String            @unique
+  chassisNo         String            @unique
+  currentOwnerOneId String
+  currentOwner      User              @relation(fields: [currentOwnerOneId], references: [oneid])
+  roadTaxDueDate    DateTime?
+  roadTaxPaidAt     DateTime?
+  status            VehicleStatus     @default(ACTIVE)
+  transfers         VehicleTransfer[]
+  violations        TrafficViolation[]
+  ledgerRecordId    String?
+}
+
+model VehicleTransfer {
+  id                String         @id @default(uuid())
+  vehicleId         String
+  vehicle           Vehicle        @relation(fields: [vehicleId], references: [id])
+  fromOwnerOneId    String
+  toOwnerOneId      String
+  sellerSignedAt    DateTime?
+  buyerSignedAt     DateTime?
+  adminApprovedAt   DateTime?
+  status            TransferStatus @default(PENDING_SELLER_SIGN)
+  ledgerRecordId    String?
+  initiatedAt       DateTime       @default(now())
+}
+
+model TrafficViolation {
+  id              String          @id @default(uuid())
+  licenseId       String
+  license         DrivingLicense  @relation(fields: [licenseId], references: [id])
+  vehicleId       String?
+  vehicle         Vehicle?        @relation(fields: [vehicleId], references: [id])
+  violationType   String
+  fineAmount      Float
+  fineStatus      FineStatus      @default(UNPAID)
+  issuedAt        DateTime        @default(now())
+  issuedByOneId   String
+  ledgerRecordId  String?
+}
+
+enum LicenseCategory {
+  MOTORCYCLE
+  LIGHT_VEHICLE
+  HEAVY_VEHICLE
+  PROFESSIONAL
+}
+
+enum LicenseStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  EXPIRED
+  REJECTED
+}
+
+enum VehicleType {
+  MOTORCYCLE
+  CAR
+  MICROBUS
+  BUS
+  TRUCK
+  CNG
+}
+
+enum VehicleStatus {
+  ACTIVE
+  SUSPENDED
+  STOLEN
+  SCRAPPED
+}
+
+enum TransferStatus {
+  PENDING_SELLER_SIGN
+  PENDING_BUYER_SIGN
+  PENDING_ADMIN
+  COMPLETED
+  CANCELLED
+}
+
+enum FineStatus {
+  UNPAID
+  PAID
+  DISPUTED
+}
+
+model Property {
+  id                String            @id @default(uuid())
+  propertyId        String            @unique
+  title             String
+  address           String
+  division          String
+  district          String
+  upazila           String
+  mouza             String
+  khatianNumber     String
+  plotNumber        String
+  areaInDecimal     Float
+  type              PropertyType
+  currentOwnerOneId String
+  currentOwner      User              @relation(fields: [currentOwnerOneId], references: [oneid])
+  estimatedValueBDT Float?
+  hasDisputeFlag    Boolean           @default(false)
+  disputeReason     String?
+  transfers         PropertyTransfer[]
+  documents         PropertyDocument[]
+  ledgerRecordId    String?
+}
+
+model PropertyTransfer {
+  id                  String                 @id @default(uuid())
+  propertyId          String
+  property            Property               @relation(fields: [propertyId], references: [id])
+  fromOwnerOneId      String
+  toOwnerOneId        String
+  agreedPriceBDT      Float
+  sellerSignatureHash String?
+  buyerSignatureHash  String?
+  sellerSignedAt      DateTime?
+  buyerSignedAt       DateTime?
+  adminApprovedAt     DateTime?
+  adminOneId          String?
+  status              PropertyTransferStatus @default(INITIATED)
+  ledgerRecordId      String?
+  createdAt           DateTime               @default(now())
+}
+
+model PropertyDocument {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  docType    String
+  fileRef    String
+  uploadedAt DateTime @default(now())
+}
+
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+  AGRICULTURAL
+  INDUSTRIAL
+}
+
+enum PropertyTransferStatus {
+  INITIATED
+  PENDING_SELLER_SIGN
+  PENDING_BUYER_SIGN
+  PENDING_ADMIN_APPROVAL
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+model MarriageRecord {
+  id               String             @id @default(uuid())
+  marriageId       String             @unique
+  groomOneId       String
+  groom            User               @relation("GroomMarriages", fields: [groomOneId], references: [oneid])
+  brideOneId       String
+  bride            User               @relation("BrideMarriages", fields: [brideOneId], references: [oneid])
+  kaziOneId        String?
+  witness1OneId    String?
+  witness2OneId    String?
+  mahrAmountBDT    Float?
+  mahrType         MahrType?
+  registrationDate DateTime           @default(now())
+  nikahnaamaHash   String?
+  religion         Religion           @default(ISLAM)
+  status           MarriageStatus     @default(ACTIVE)
+  ledgerRecordId   String?
+  divorceProceeding DivorceProceeding?
+}
+
+model DivorceProceeding {
+  id                     String        @id @default(uuid())
+  marriageId             String        @unique
+  marriage               MarriageRecord @relation(fields: [marriageId], references: [id])
+  initiatorOneId         String
+  divorceType            DivorceType
+  noticeFiledAt          DateTime      @default(now())
+  arbitrationFormedAt    DateTime?
+  chairmanOneId          String?
+  reconciliationAttempts Int           @default(0)
+  effectiveDate          DateTime
+  actualEffectiveDate    DateTime?
+  status                 DivorceStatus @default(NOTICE_FILED)
+  certificateHash        String?
+  ledgerRecordId         String?
+}
+
+enum MahrType { 
+  PROMPT 
+  DEFERRED 
+  PARTLY_PROMPT 
+}
+
+enum MarriageStatus { 
+  ACTIVE 
+  DIVORCE_PENDING 
+  DISSOLVED 
+}
+
+enum DivorceType {
+  CIVIL 
+  TALAQ 
+  MUBARAT 
+  KHULA 
+}
+
+enum DivorceStatus { 
+  NOTICE_FILED 
+  ARBITRATION_ACTIVE 
+  RECONCILED 
+  FINALIZED 
+}
+
+
+
+model BirthRecord {
+  id              String   @id @default(uuid())
+  childName       String
+  fatherOneId     String?
+  motherOneId     String?
+  dateOfBirth     DateTime
+  placeOfBirth    String
+  ledgerRecordId  String?
+  createdAt       DateTime @default(now())
+}
+
+model DeathRecord {
+  id              String   @id @default(uuid())
+  deceasedOneId   String
+  dateOfDeath     DateTime
+  causeOfDeath    String?
+  ledgerRecordId  String?
+  createdAt       DateTime @default(now())
+}

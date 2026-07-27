@@ -1,0 +1,39 @@
+:root {
+  --oneid-green: #006A4E;
+  --oneid-red: #F42A41;
+  --oneid-green-light: #E8F5F1;
+  --oneid-green-dark: #004A37;
+  --surface: #FFFFFF;
+  --surface-secondary: #F8F9FA;
+  --border: #E5E7EB;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --voting-accent: #7C3AED;
+  --tax-accent: #D97706;
+  --vehicle-accent: #0F6E56;
+  --property-accent: #D85A30;
+  --civil-accent: #D4537E;
+}
+
+/* Reduced Motion Guidelines from accessibility checks */
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.skeleton-pulse {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
