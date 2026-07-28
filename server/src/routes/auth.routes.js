@@ -220,7 +220,8 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (user.role === 'SUPER_ADMIN' && process.env.NODE_ENV !== 'production') {
+    const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'TAX_ADMIN', 'VEHICLE_ADMIN', 'PROPERTY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'LOCAL_AUTHORITY_ADMIN', 'KAZI_ADMIN'];
+    if (ADMIN_ROLES.includes(user.role) && process.env.NODE_ENV !== 'production') {
       const token = jwt.sign(
         {
           userId: user.id,
@@ -232,7 +233,7 @@ router.post('/login', async (req, res, next) => {
         { expiresIn: '7d' }
       );
 
-      await logEvent(user.id, 'LOGIN_SUCCESS', 'Super Admin logged in (MFA skipped for testing)', req.ip, null);
+      await logEvent(user.id, 'LOGIN_SUCCESS', `${user.role} logged in (MFA skipped for testing)`, req.ip, null);
 
       return res.status(200).json({
         token,

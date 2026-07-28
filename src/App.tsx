@@ -153,8 +153,21 @@ function AppNavbar() {
             <GlobalSearch />
           </div>
           
-          {/* Admin hubs */}
-          {user.role === 'ADMIN' && (
+          {/* Super Admin & Admin hubs */}
+          {user.role === 'SUPER_ADMIN' && (
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
+              <Link 
+                to="/admin/super-dashboard" 
+                onClick={closeMenu}
+                className="text-amber-800 hover:text-amber-950 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors font-bold"
+                aria-label="Super Admin Dashboard"
+              >
+                <Shield className="h-3.5 w-3.5 text-amber-600" /> Super Admin
+              </Link>
+            </div>
+          )}
+
+          {(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
               <Link 
                 to="/admin/dashboard" 
@@ -558,7 +571,7 @@ export default function App() {
               <Route 
                 path="/admin/dashboard" 
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
                     <AdminDashboard />
                   </ProtectedRoute>
                 } 
@@ -566,7 +579,7 @@ export default function App() {
               <Route 
                 path="/admin/elections" 
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
                     <AdminElections />
                   </ProtectedRoute>
                 } 
@@ -574,7 +587,7 @@ export default function App() {
               <Route 
                 path="/admin/candidates" 
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
                     <CandidateReview />
                   </ProtectedRoute>
                 } 
@@ -582,7 +595,7 @@ export default function App() {
               <Route 
                 path="/admin/audit-logs" 
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
                     <AuditLogs />
                   </ProtectedRoute>
                 } 
@@ -590,7 +603,7 @@ export default function App() {
               <Route 
                 path="/admin/blockchain-status" 
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
                     <BlockchainStatus />
                   </ProtectedRoute>
                 } 
@@ -678,7 +691,7 @@ export default function App() {
               <Route 
                 path="/tax" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'TAX_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'TAX_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <TaxDashboard />
                     </CitizenLayout>
@@ -688,7 +701,7 @@ export default function App() {
               <Route 
                 path="/tax/calculate" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'TAX_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'TAX_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <TaxCalculator />
                     </CitizenLayout>
@@ -698,7 +711,7 @@ export default function App() {
               <Route 
                 path="/tax/receipt/:receiptNumber" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'TAX_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'TAX_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <TaxReceipt />
                     </CitizenLayout>
@@ -708,7 +721,7 @@ export default function App() {
               <Route 
                 path="/tax/admin" 
                 element={
-                  <ProtectedRoute roles={['TAX_ADMIN', 'ADMIN']}>
+                  <ProtectedRoute roles={['TAX_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
                     <TaxAdminDashboard />
                   </ProtectedRoute>
                 } 
@@ -718,7 +731,7 @@ export default function App() {
               <Route 
                 path="/vehicle" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'VEHICLE_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'VEHICLE_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <VehicleDashboard />
                     </CitizenLayout>
@@ -728,7 +741,7 @@ export default function App() {
               <Route 
                 path="/vehicle/transfer" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'VEHICLE_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'VEHICLE_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <VehicleTransfer />
                     </CitizenLayout>
@@ -738,7 +751,7 @@ export default function App() {
               <Route 
                 path="/vehicle/admin" 
                 element={
-                  <ProtectedRoute roles={['VEHICLE_ADMIN', 'ADMIN']}>
+                  <ProtectedRoute roles={['VEHICLE_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
                     <VehicleAdminDashboard />
                   </ProtectedRoute>
                 } 
@@ -749,7 +762,7 @@ export default function App() {
               <Route 
                 path="/property" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'PROPERTY_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'PROPERTY_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <PropertyDashboard />
                     </CitizenLayout>
@@ -759,7 +772,7 @@ export default function App() {
               <Route 
                 path="/property/transfer" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'PROPERTY_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'PROPERTY_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <TransferWizard />
                     </CitizenLayout>
@@ -769,7 +782,7 @@ export default function App() {
               <Route 
                 path="/property/consent/:transferId" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'PROPERTY_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'PROPERTY_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <BuyerConsentPage />
                     </CitizenLayout>
@@ -779,7 +792,7 @@ export default function App() {
               <Route 
                 path="/property/admin" 
                 element={
-                  <ProtectedRoute roles={['PROPERTY_ADMIN', 'ADMIN']}>
+                  <ProtectedRoute roles={['PROPERTY_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
                     <PropertyAdminDashboard />
                   </ProtectedRoute>
                 } 
@@ -790,7 +803,7 @@ export default function App() {
               <Route 
                 path="/civil-registry" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'KAZI_ADMIN', 'LOCAL_AUTHORITY_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'KAZI_ADMIN', 'LOCAL_AUTHORITY_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <CivilDashboard />
                     </CitizenLayout>
@@ -800,7 +813,7 @@ export default function App() {
               <Route 
                 path="/civil-registry/kazi" 
                 element={
-                  <ProtectedRoute roles={['KAZI_ADMIN', 'ADMIN']}>
+                  <ProtectedRoute roles={['KAZI_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
                     <KaziRegistry />
                   </ProtectedRoute>
                 } 
@@ -808,7 +821,7 @@ export default function App() {
               <Route 
                 path="/civil-registry/chairman" 
                 element={
-                  <ProtectedRoute roles={['LOCAL_AUTHORITY_ADMIN', 'ADMIN']}>
+                  <ProtectedRoute roles={['LOCAL_AUTHORITY_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
                     <ChairmanArbitration />
                   </ProtectedRoute>
                 } 

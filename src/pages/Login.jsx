@@ -71,7 +71,21 @@ export default function Login() {
       if (response.data.token) {
         login(response.data.token, response.data.user);
         toast.success(`Welcome back, ${response.data.user.name}!`);
-        navigate('/admin/dashboard');
+        
+        const roleRedirects = {
+          'SUPER_ADMIN': '/admin/super-dashboard',
+          'ADMIN': '/admin/dashboard',
+          'TAX_ADMIN': '/tax/admin',
+          'VEHICLE_ADMIN': '/vehicle/admin',
+          'PROPERTY_ADMIN': '/property/admin',
+          'CIVIL_REGISTRY_ADMIN': '/civil-registry/admin',
+          'KAZI_ADMIN': '/civil-registry/kazi',
+          'LOCAL_AUTHORITY_ADMIN': '/civil-registry/chairman',
+          'VOTER': '/dashboard',
+          'CANDIDATE': '/dashboard'
+        };
+
+        navigate(roleRedirects[response.data.user.role] || '/dashboard');
         return;
       }
 
