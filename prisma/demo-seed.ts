@@ -15,7 +15,6 @@ async function main() {
   console.log('🚀 Initiating VoteChain BD Exact Presentation Demo Seeder...');
 
   const pwd1234 = await bcrypt.hash('Test@1234', 10);
-  const pwd123 = await bcrypt.hash('Test@1234', 10);
 
   // 1. Resolve Admins or seed if not exists
   const adminAccounts = [
@@ -47,7 +46,6 @@ async function main() {
       });
       console.log(`✅ Admin created: ${existing.email} (${account.role})`);
     } else {
-      // update password and oneid just in case
       await prisma.user.update({
         where: { id: existing.id },
         data: { password_hash: account.pwd, oneid: account.oneid }
@@ -128,9 +126,9 @@ async function main() {
   // 5. Create candidates
   console.log('👤 Registering Specific Candidates...');
   const candidateUsersData = [
-    { name: 'Mahmud Hassan', email: 'mahmud@candidate.bd', role: Role.CANDIDATE, constituency: 'Dhaka-1', party: 'AL', manifesto: 'Digital transformation', occupation: 'Engineer', education: 'B.Sc.', election_id: activeElection.id, pwd: pwd1234 },
-    { name: 'Aminul Islam', email: 'aminul@candidate.bd', role: Role.CANDIDATE, constituency: 'Dhaka-1', party: 'BNP', manifesto: 'Committed to infrastructure', occupation: 'Software Entrepreneur', education: 'B.Sc. in CSE', election_id: activeElection.id, pwd: pwd123 },
-    { name: 'Salma Begum', email: 'salma@candidate.bd', role: Role.CANDIDATE, constituency: 'Dhaka-1', party: 'JP', manifesto: 'Standing for transparency', occupation: 'Social Worker', education: 'LL.B.', election_id: activeElection.id, pwd: pwd123 },
+    { name: 'Mahmud Hassan', email: 'mahmud@candidate.bd', role: Role.CANDIDATE, constituency: 'Dhaka-1', party: 'AL', manifesto: 'Digital transformation', occupation: 'Engineer', education: 'B.Sc.', election_id: activeElection.id, pwd: pwd1234, oneid: 'BD-2026-CAND0001' },
+    { name: 'Aminul Islam', email: 'aminul@candidate.bd', role: Role.CANDIDATE, constituency: 'Dhaka-1', party: 'BNP', manifesto: 'Committed to infrastructure', occupation: 'Software Entrepreneur', education: 'B.Sc. in CSE', election_id: activeElection.id, pwd: pwd1234, oneid: 'BD-2026-CAND0002' },
+    { name: 'Salma Begum', email: 'salma@candidate.bd', role: Role.CANDIDATE, constituency: 'Dhaka-1', party: 'JP', manifesto: 'Standing for transparency', occupation: 'Social Worker', education: 'LL.B.', election_id: activeElection.id, pwd: pwd1234, oneid: 'BD-2026-CAND0003' },
   ];
 
   const candidatesMap: Record<string, any> = {};
@@ -152,6 +150,7 @@ async function main() {
         role: Role.CANDIDATE,
         constituency: cData.constituency,
         is_verified: true,
+        oneid: cData.oneid
       }
     });
 
@@ -172,16 +171,16 @@ async function main() {
       }
     });
     candidatesMap[cData.name] = candidate;
-    console.log(`✅ Candidate created: ${cData.name} (${cData.email})`);
+    console.log(`✅ Candidate created: ${cData.name} (${cData.email}) - OneID: ${u.oneid}`);
   }
 
   // 6. Create Specific Citizens
   console.log('👥 Seeding Specific Citizen/Voter accounts...');
   const citizenAccounts = [
-    { name: 'Sheikh Talha Shahriar', email: 'talha@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-1' },
-    { name: 'Rashmin Ahmed Rasha', email: 'rasha@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-1' },
-    { name: 'Mehnaz Rahman', email: 'mehnaz@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-2' },
-    { name: 'Arifa Islam Sinthia', email: 'sinthia@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-2' }
+    { name: 'Sheikh Talha Shahriar', email: 'talha@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-1', oneid: 'BD-2026-TALHA001' },
+    { name: 'Rashmin Ahmed Rasha', email: 'rasha@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-1', oneid: 'BD-2026-RASHA001' },
+    { name: 'Mehnaz Rahman', email: 'mehnaz@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-2', oneid: 'BD-2026-MEHNAZ01' },
+    { name: 'Arifa Islam Sinthia', email: 'sinthia@citizen.bd', pwd: pwd1234, constituency: 'Dhaka-2', oneid: 'BD-2026-SINTHI01' }
   ];
 
   const specificCitizens = [];
@@ -201,17 +200,17 @@ async function main() {
         role: Role.VOTER,
         constituency: cit.constituency,
         is_verified: true,
+        oneid: cit.oneid
       }
     });
     specificCitizens.push(voter);
     
-    // Link to respective elections
     if (cit.constituency === 'Dhaka-1') {
       await prisma.voterElection.create({ data: { voter_id: voter.id, election_id: activeElection.id, has_voted: false } });
     } else {
       await prisma.voterElection.create({ data: { voter_id: voter.id, election_id: closedElection.id, has_voted: false } });
     }
-    console.log(`✅ Citizen created: ${cit.name} (${cit.email})`);
+    console.log(`✅ Citizen created: ${cit.name} (${cit.email}) - OneID: ${voter.oneid}`);
   }
 
   // 7. Create 20 Batch Voters for Dhaka-1
@@ -233,10 +232,11 @@ async function main() {
         email: email,
         phone: `+88015111111${padded}`,
         nid_hash: crypto.createHash('sha256').update(`NID-BATCH-${padded}`).digest('hex'),
-        password_hash: pwd123,
+        password_hash: pwd1234,
         role: Role.VOTER,
         constituency: 'Dhaka-1',
         is_verified: true,
+        oneid: `BD-2026-VOTER0${padded}`
       }
     });
     batchVotersDhaka1.push(voter);
@@ -268,7 +268,7 @@ async function main() {
     }
   }
 
-  console.log('🎉 Successfully seeded EXACT required demo data! Ready for demonstration!');
+  console.log('🎉 Successfully seeded EXACT required demo data with valid OneIDs! Ready for demonstration!');
 }
 
 main()
