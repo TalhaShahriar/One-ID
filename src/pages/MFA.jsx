@@ -327,7 +327,7 @@ export default function MFA() {
             <div className="space-y-3">
               <button
                 onClick={() => handleVerifyMFA()}
-                disabled={isSubmitting || (verificationMethod === 'sms' && !confirmationResult && finalCode !== '123456')}
+                disabled={isSubmitting || (verificationMethod === 'sms' && !confirmationResult && otp.join('') !== '123456')}
                 className="w-full bg-[#006A4E] hover:bg-[#004e38] text-white rounded-lg py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-60 cursor-pointer"
               >
                 {isSubmitting ? (
