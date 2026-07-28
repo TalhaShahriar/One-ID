@@ -327,10 +327,6 @@ export const payTax = async (req, res, next) => {
       return res.status(403).json({ error: 'You are not authorized to pay this tax return.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
-    if (taxReturn.taxProfile.citizenOneId !== user.oneid) {
-      return res.status(403).json({ error: 'You are not authorized to pay this tax return.' });
-    }
 
     if (parseFloat(amount) < taxReturn.finalTax) {
       return res.status(400).json({ error: `Insufficient payment. Required amount is BDT ${taxReturn.finalTax.toLocaleString()}.` });

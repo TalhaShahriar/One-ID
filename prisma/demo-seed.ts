@@ -1,5 +1,5 @@
 import { PrismaClient, Role, ElectionType, ElectionStatus, CandidateStatus, FlagType, Severity } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 

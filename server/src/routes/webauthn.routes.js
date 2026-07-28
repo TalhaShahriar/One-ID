@@ -225,7 +225,15 @@ router.post('/login-options', async (req, res, next) => {
           OR: [
             { email: cleanId },
             { phone: cleanId },
-            { phone: phoneAlt },
+            { phone: phoneAlt }
+          ]
+        },
+        include: {
+          webAuthnCredentials: true
+        }
+      });
+    }
+
     if (!user) {
       return res.status(401).json({ error: 'No citizen found with this identifier.' });
     }

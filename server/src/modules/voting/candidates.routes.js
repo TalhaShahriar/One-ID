@@ -4,7 +4,7 @@ import { authenticateJWT, authorizeRoles } from '../../core/auth.middleware.js';
 import { logEvent } from '../../core/audit.service.js';
 import { sendCandidateApprovalEmail, sendCandidateRejectionEmail } from '../../shared/email.service.js';
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 

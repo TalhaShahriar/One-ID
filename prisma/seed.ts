@@ -1,5 +1,5 @@
 import { PrismaClient, Role, ElectionType, ElectionStatus, CandidateStatus, MaritalStatus, TaxPaymentStatus, LicenseCategory, LicenseStatus, VehicleType, VehicleStatus, PropertyType, PropertyTransferStatus, MahrType, MarriageStatus, DivorceType, DivorceStatus, FineStatus } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 const prisma = new PrismaClient();
