@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-random-key-change-this-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET === 'super-secret-random-key-change-this-in-production') {
+  throw new Error('[FATAL] JWT_SECRET environment variable is not set or uses the default. Refusing to start.');
+}
 
 /**
  * Middleware: authenticate

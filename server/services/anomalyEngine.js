@@ -81,15 +81,9 @@ export async function checkDeviceFingerprint(fingerprint, voterId, electionId, p
     });
   }
   
-  // Record this fingerprint usage for future comparisons
-  return await flagAnomaly(prisma, {
-    flag_type: "DEVICE_COLLISION",
-    ip_address: "N/A",
-    voter_id: voterId,
-    election_id: electionId,
-    severity: "LOW",
-    details: { fingerprint, note: "first_use_recorded" }
-  });
+  // If this is the first use, we should ideally track it somewhere else
+  // instead of polluting the AnomalyFlag table.
+  return null;
 }
 
 /**

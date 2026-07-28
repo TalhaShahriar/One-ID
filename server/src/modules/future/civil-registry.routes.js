@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateJWT } from '../../core/auth.middleware.js';
+import { authenticateJWT, authorizeRoles } from '../../core/auth.middleware.js';
 import {
   verifyOneID,
   registerMarriage,
@@ -42,7 +42,7 @@ router.post('/divorce/arbitration/setup', authenticateJWT, formArbitrationCounci
 router.post('/divorce/arbitration/log', authenticateJWT, logReconciliationAttempt);
 router.post('/divorce/reconcile', authenticateJWT, reconcileMarriage);
 router.post('/divorce/finalize', authenticateJWT, finalizeDivorce);
-router.get('/admin/proceedings', authenticateJWT, getAdminProceedings);
+router.get('/admin/proceedings', authenticateJWT, authorizeRoles('KAZI_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), getAdminProceedings);
 router.get('/public/verify/:elementId', verifyCertificate);
 
 router.post('/birth', authenticateJWT, registerBirth);
@@ -55,8 +55,8 @@ router.get('/death/:id', authenticateJWT, getDeathCertificate);
 
 router.post('/marriage/apply', authenticateJWT, applyMarriage);
 router.get('/marriage/applications', authenticateJWT, getMarriageApplications);
-router.post('/marriage/applications/:id/approve', authenticateJWT, approveMarriageApplication);
-router.delete('/marriage/applications/:id/reject', authenticateJWT, rejectMarriageApplication);
+router.post('/marriage/applications/:id/approve', authenticateJWT, authorizeRoles('KAZI_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), approveMarriageApplication);
+router.delete('/marriage/applications/:id/reject', authenticateJWT, authorizeRoles('KAZI_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), rejectMarriageApplication);
 
 export default router;
 

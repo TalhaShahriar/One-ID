@@ -41,7 +41,12 @@ io.on('connection', (socket) => {
   });
 });
 
-// 2. VITE MIDDLEWARE OR STATIC SERVING
+// 2. API 404 FALLBACK
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Endpoint routing target not found in OneID core registry.' });
+});
+
+// 3. VITE MIDDLEWARE OR STATIC SERVING
 if (process.env.NODE_ENV !== "production") {
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
@@ -80,10 +85,7 @@ startAuditVerifier(io);
 startAuditCron();
 startCivilScheduler(io);
 
-// 4. API 404 FALLBACK
-app.all('/api/*', (req, res) => {
-  res.status(404).json({ error: 'Endpoint routing target not found in OneID core registry.' });
-});
+
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {

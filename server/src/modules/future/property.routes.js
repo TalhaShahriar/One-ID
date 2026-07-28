@@ -25,8 +25,8 @@ router.post('/transfer/confirm', authenticateJWT, buyerConfirmTransfer);
 router.post('/transfer/cancel', authenticateJWT, cancelTransfer);
 
 // Ministry land admin actions (Needs PROPERTY_ADMIN or ADMIN role)
-router.get('/admin/all', authenticateJWT, authorizeRoles('PROPERTY_ADMIN', 'ADMIN'), getAllProperties);
-router.post('/admin/dispute', authenticateJWT, authorizeRoles('PROPERTY_ADMIN', 'ADMIN'), flagDispute);
-router.post('/admin/approve', authenticateJWT, authorizeRoles('PROPERTY_ADMIN', 'ADMIN'), adminApproveTransfer);
+router.get('/admin/all', authenticateJWT, authorizeRoles('PROPERTY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), getAllProperties);
+router.post('/admin/dispute', authenticateJWT, authorizeRoles('PROPERTY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), flagDispute);
+router.post('/admin/approve', authenticateJWT, authorizeRoles('PROPERTY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), adminApproveTransfer);
 
 export default router;

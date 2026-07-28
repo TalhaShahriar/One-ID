@@ -56,23 +56,19 @@ async function triggerTamperAlarm(sector, errorDetails) {
     return;
   }
 
-  const subject = `🚨 CRITICAL WARNING: Blockchain Forgery Detected in Sector ${sector}!`;
+  const subject = `🚨 Tamper Detected in Sector ${sector}`;
   const textContent = `
-    ATTENTION SUPER ADMINISTRATOR,
-
-    The secure automated integrity check job detected a cryptographic chain discontinuity.
+    Integrity check detected a chain discontinuity in sector: ${sector}
     
-    [ANOMALY PROFILE DETAILS]
-    - Module Sector: ${sector}
-    - Fault Verification Layer: ${errorDetails.layer || 'SEQUENCE_CHAIN'}
-    - Broken Sequence Index: Block #${errorDetails.brokenAt || 'Unknown'}
-    - Investigative Message: ${errorDetails.reason || 'Record Hash or HMAC authentication mismatch.'}
+    Layer: ${errorDetails.layer || 'SEQUENCE_CHAIN'}
+    Broken Block: #${errorDetails.brokenAt || 'Unknown'}
+    Reason: ${errorDetails.reason || 'Hash or signature mismatch'}
 
-    Under strict sovereign sandbox legislation protocols, modifications to block nodes are completely restricted. Ensure that the database container, system credentials, or Postgres trigger modules have not been compromised.
+    Please check system audit logs immediately.
   `;
 
   for (const email of emails) {
-    await sendSystemMail(email, subject, textContent, "⚠️ SECURE COSTEWARD CHANNELS - UNLAWFUL MUTATION ALERT");
+    await sendSystemMail(email, subject, textContent, "OneID Security Watchdog");
   }
 }
 
@@ -99,26 +95,22 @@ export async function verifyAllChainsAndPrint() {
  * Starts all scheduled background timers across OneID modules
  */
 export function startAllCrons() {
-  console.log('⏰ [OneID Schedulers] Initializing multi-sector audit & compliance daemon...');
+  console.log('[cron] Starting audit schedulers');
 
-  // 0. Perform Initial Verification logs on startup
   verifyAllChainsAndPrint().catch(err => {
     console.error('Failed executing initial startup verification audit:', err);
   });
 
-  // Cron 1 (Hourly Audit): Verify all block chain sectors sequentially
   cron.schedule('0 * * * *', async () => {
-    console.log('🔍 [OneID Hourly Audit] Verifying blockchain cryptographic forward chains...');
+    console.log('[cron] Hourly ledger audit');
     await verifyAllChainsAndPrint();
   });
 
-  // Cron 2 (Daily 8:00 AM): Auto-finalize divorces and remind local authorities
   cron.schedule('0 8 * * *', async () => {
-    console.log('⏳ [OneID Civil Scheduler] Initiating daily compliance & marital finalization protocols...');
+    console.log('[cron] Daily civil check');
     try {
       const now = new Date();
 
-      // Finalize Arbitrations after 90 Days
       const pendingFinalizations = await prisma.divorceProceeding.findMany({
         where: {
           status: 'ARBITRATION_ACTIVE',
@@ -131,7 +123,7 @@ export function startAllCrons() {
         }
       });
 
-      console.log(`⏳ [Civil Scheduler] Found ${pendingFinalizations.length} pending dissolution records ready for finalization.`);
+      console.log(`[cron] ${pendingFinalizations.length} divorce proceedings to finalize`);
 
       for (const proceeding of pendingFinalizations) {
         const actualDate = new Date();
@@ -196,7 +188,7 @@ export function startAllCrons() {
         }
       });
 
-      console.log(`⚠️ [Civil Scheduler] Found ${overdueProceedings.length} notice proceedings passing 28 days limit without formed Arbitration.`);
+      console.log(`[cron] ${overdueProceedings.length} overdue divorce proceedings (28+ days)`);
 
       if (overdueProceedings.length > 0) {
         const localAdmins = await prisma.user.findMany({ where: { role: 'LOCAL_AUTHORITY_ADMIN' } });
@@ -204,9 +196,9 @@ export function startAllCrons() {
 
         if (adminEmails.length > 0) {
           for (const proceeding of overdueProceedings) {
-            const warningMsg = `URGENT COMPLIANCE ACTION REQUIRED,\n\nDivorce proceeding ID: ${proceeding.id} (Groom: ${proceeding.marriage.groom.name} (${proceeding.marriage.groomOneId}) + Bride: ${proceeding.marriage.bride.name} (${proceeding.marriage.brideOneId})) has been filed for more than 28 days without an Arbitration council setup.\n\nPlease log in immediately to establish arbitration councils as required under statutory legislation protocols before the 30-day legal deadline.`;
+            const warningMsg = `Divorce proceeding ID: ${proceeding.id} (Groom: ${proceeding.marriage.groom.name} + Bride: ${proceeding.marriage.bride.name}) has been open for over 28 days without an arbitration council.\n\nPlease log in to establish an arbitration council before the 30-day deadline.`;
             for (const email of adminEmails) {
-              await sendSystemMail(email, `⚠️ COMPLIANCE ALARM: 28 Days Passed Without Arbitration council`, warningMsg, "Union Parishad Local Authority Watchdog Console");
+              await sendSystemMail(email, `⚠️ 28 Days Passed Without Arbitration Council`, warningMsg, "Union Parishad Local Authority");
             }
           }
         }
@@ -217,9 +209,8 @@ export function startAllCrons() {
     }
   });
 
-  // Cron 3 (Daily 9:00 AM): Road Tax Near Expiry Notifications (within 14 days)
   cron.schedule('0 9 * * *', async () => {
-    console.log('⏳ [OneID BRTA Scheduler] Conducting vehicle road tax compliance scans...');
+    console.log('[cron] Road tax expiry scan');
     try {
       const now = new Date();
       const fourteenDaysOut = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
@@ -236,12 +227,12 @@ export function startAllCrons() {
         }
       });
 
-      console.log(`⏳ [BRTA Scheduler] Vehicles requiring near-term tax renewals: ${scanVehicles.length}`);
+      console.log(`[cron] ${scanVehicles.length} vehicles with expiring road tax`);
 
       for (const vehicle of scanVehicles) {
         if (vehicle.currentOwner && vehicle.currentOwner.email) {
-          const expirationMsg = `Dear Citizen ${vehicle.currentOwner.name},\n\nOur system records scan shows that the Road Tax statutory validity period for your registered vehicle [${vehicle.make} ${vehicle.model}] (Registration Designation Number: ${vehicle.registrationNo}) is near-term expiring on ${vehicle.roadTaxDueDate ? vehicle.roadTaxDueDate.toLocaleDateString() : 'N/A'}.\n\nPlease secure full tax renewal payments through the OneID Tax & Revenue portal within 14 days to prevent automatic traffic fine increments under municipal BRTA regulations.\n\nSovereign Land Transport & BRTA System`;
-          await sendSystemMail(vehicle.currentOwner.email, `⚠️ ROAD TAX Near-Expiry Warning - ${vehicle.registrationNo}`, expirationMsg, "BRTA Vehicle Registrar Compliance Hub 🇧🇩");
+          const expirationMsg = `Dear Citizen ${vehicle.currentOwner.name},\n\nRoad tax for your vehicle ${vehicle.registrationNo} (${vehicle.make} ${vehicle.model}) expires on ${vehicle.roadTaxDueDate ? vehicle.roadTaxDueDate.toLocaleDateString() : 'N/A'}.\n\nPlease renew your tax payment through the OneID portal within 14 days.`;
+          await sendSystemMail(vehicle.currentOwner.email, `⚠️ Road Tax Expiring Soon - ${vehicle.registrationNo}`, expirationMsg, "BRTA Vehicle Registrar");
         }
       }
 
@@ -252,7 +243,7 @@ export function startAllCrons() {
 
   // Cron 4 (Weekly Monday 7:00 AM): stats summary email to super admin accounts
   cron.schedule('0 7 * * 1', async () => {
-    console.log('📊 [OneID Weekly Stats] Delivering weekly sovereign audit digests...');
+    console.log('[cron] Weekly stats email');
     try {
       const superAdmins = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN' } });
       const emails = superAdmins.map(admin => admin.email).filter(Boolean);
@@ -267,37 +258,29 @@ export function startAllCrons() {
       for (const sector of SECTORS) {
         const count = await prisma.ledgerRecord.count({ where: { sector: sector } });
         const check = await verifyChain(sector, prisma);
-        const health = check.valid ? 'VALID & INTEGRITY APPROVED [SEALED]' : '🚨 CORRUPT / TAMPER DETECTED';
+        const health = check.valid ? 'VALID' : '🚨 TAMPER DETECTED';
         
-        sectorCountsText += `- ${sector}: ${count} Total Sealed Records\n`;
-        activeChainStatusText += `- ${sector} Ledger Security Status: ${health}\n`;
+        sectorCountsText += `- ${sector}: ${count} records\n`;
+        activeChainStatusText += `- ${sector}: ${health}\n`;
       }
 
       const weeklyStatsContent = `
-        Dear Sovereign Super Administrator,
+        OneID Bangladesh Weekly Summary:
 
-        Here is your official scheduled OneID Bangladesh weekly administrative ledger health report:
+        Users:
+        - New identity registrations (last 7 days): ${newUsersCount}
 
-        [SYSTEM CORE REGISTRATION STATS]
-        - New identity cards created in the last 7 days: ${newUsersCount}
-
-        [BLOCK SEQUENCE METRIC ANALYSIS]
+        Ledger Records & Health:
         ${sectorCountsText}
-
-        [CHRONO-CHAIN HEALTH REPORT]
         ${activeChainStatusText}
-
-        All security safeguards (Postgres Block Trigger locks, active webhook logging channels, and JWT audit validations) are fully functional as expected.
-
-        OneID Bangladesh Cloud Hub Platform Node
       `;
 
       for (const email of emails) {
-        await sendSystemMail(email, '📊 Weekly Sovereign Administrative Ledger Digest', weeklyStatsContent, "OneID Bangladesh Government Central Dashboard 🇧🇩");
+        await sendSystemMail(email, '📊 Weekly OneID Admin Digest', weeklyStatsContent, "OneID Bangladesh Dashboard 🇧🇩");
       }
 
     } catch (err) {
-      console.error('❌ Exception dispatching Monday morning metrics summary:', err);
+      console.error('❌ Error sending weekly stats summary:', err);
     }
   });
 }

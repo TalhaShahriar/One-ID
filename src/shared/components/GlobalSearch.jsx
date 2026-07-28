@@ -32,6 +32,7 @@ export default function GlobalSearch() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const searchRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -41,6 +42,18 @@ export default function GlobalSearch() {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        inputRef.current?.focus();
+        setIsOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   if (!user) return null;
@@ -71,6 +84,7 @@ export default function GlobalSearch() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden="true" />
         <input
           id="global-search-input"
+          ref={inputRef}
           type="text"
           placeholder="Search modules (e.g. Tax, Vehicle)..."
           value={query}
@@ -79,8 +93,11 @@ export default function GlobalSearch() {
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          className="w-full pl-9 pr-4 py-1.5 bg-slate-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-[#006a4e] focus:bg-white transition-all outline-none"
+          className="w-full pl-9 pr-14 py-1.5 bg-slate-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-[#006a4e] focus:bg-white transition-all outline-none"
         />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-slate-200/80 rounded border border-slate-300 pointer-events-none select-none">
+          <kbd className="font-sans">⌘</kbd>K
+        </div>
       </div>
 
       {isOpen && query.length > 0 && (

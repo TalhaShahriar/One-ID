@@ -4,10 +4,8 @@ import { logEvent } from '../../core/audit.service.js';
 import { createTransporter } from '../../shared/email.service.js';
 import crypto from 'crypto';
 
-// Help send visual emails / logs
 async function notifyUser(email, subject, bodyText) {
   const transporter = createTransporter();
-  console.log(`✉️ [OUTGOING PROPERTY NOTIFICATION] To: ${email} | Subject: "${subject}" | Msg: ${bodyText}`);
   if (!transporter) return;
   try {
     await transporter.sendMail({
@@ -16,11 +14,11 @@ async function notifyUser(email, subject, bodyText) {
       subject,
       html: `
         <div style="font-family: sans-serif; padding: 25px; background: #FFF8E7; border: 2px solid #006a4e; border-radius: 12px; max-width: 550px; margin: auto;">
-          <h2 style="color: #006a4e; margin-top: 0;">OneID Bangladesh • Ministry of Land Node 🇧🇩</h2>
+          <h2 style="color: #006a4e; margin-top: 0;">OneID Bangladesh • Ministry of Land 🇧🇩</h2>
           <hr style="border: 0; border-top: 2px solid #006a4e; margin-bottom: 20px;" />
           <p style="font-size: 14px; line-height: 1.6; color: #333;">${bodyText}</p>
           <hr style="border: 0; border-top: 1px solid #ddd; margin-top: 25px; margin-bottom: 10px;" />
-          <caption style="font-size: 11px; color: #666;">This is an automated administrative "Smart Contract" state transition from the OneID Core Ledger Registry.</caption>
+          <caption style="font-size: 11px; color: #666;">Automated notification from OneID.</caption>
         </div>
       `
     });
@@ -29,7 +27,6 @@ async function notifyUser(email, subject, bodyText) {
   }
 }
 
-// SHA-256 helper
 function sha256(data) {
   return crypto.createHash('sha256').update(data).digest('hex');
 }
@@ -52,12 +49,12 @@ export const registerProperty = async (req, res, next) => {
     } = req.body;
 
     if (!title || !address || !division || !district || !upazila || !mouza || !khatianNumber || !plotNumber || !areaInDecimal || !type) {
-      return res.status(400).json({ error: 'All primary khatian and boundary parameters are mandatory for title registration.' });
+      return res.status(400).json({ error: 'All required fields must be filled.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
-      return res.status(400).json({ error: 'Citizen account is not verified or lacks a valid OneID.' });
+      return res.status(400).json({ error: 'Account not found or missing OneID.' });
     }
 
     const year = new Date().getFullYear();
@@ -92,7 +89,7 @@ export const registerProperty = async (req, res, next) => {
     });
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'PROPERTY_REGISTERED',
       `Registered property card ${propertyId} for khatian ${khatianNumber} at Mouza ${mouza}`,
       req.ip
@@ -107,7 +104,7 @@ export const registerProperty = async (req, res, next) => {
 // 2. GET USER'S PROPERTIES
 export const getMyProperties = async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
       return res.json({ properties: [], activeIncomingTransfers: [] });
     }
@@ -145,7 +142,7 @@ export const getPropertyHistory = async (req, res, next) => {
   try {
     const { propertyId } = req.params;
     if (!propertyId) {
-      return res.status(400).json({ error: 'propertyId parameter path variable is required.' });
+      return res.status(400).json({ error: 'propertyId is required.' });
     }
 
     const property = await prisma.property.findUnique({
@@ -156,7 +153,7 @@ export const getPropertyHistory = async (req, res, next) => {
     });
 
     if (!property) {
-      return res.status(404).json({ error: 'No land record was found matching this Property ID.' });
+      return res.status(404).json({ error: 'Property not found.' });
     }
 
     const transfers = await prisma.propertyTransfer.findMany({
@@ -164,7 +161,6 @@ export const getPropertyHistory = async (req, res, next) => {
       orderBy: { createdAt: 'asc' }
     });
 
-    // Masker utility for compliance privacy
     const maskOneId = (oid) => {
       if (!oid) return 'BD-****-XXXX';
       if (oid.length < 5) return 'BD-****';
@@ -203,12 +199,11 @@ export const getPropertyHistory = async (req, res, next) => {
   }
 };
 
-// 4. FLAG DISPUTE (PROPERTY ENFORCEMENT OFFICER)
 export const flagDispute = async (req, res, next) => {
   try {
     const { propertyId, reason } = req.body;
     if (!propertyId || !reason) {
-      return res.status(400).json({ error: 'propertyId and structural dispute reason are mandatory.' });
+      return res.status(400).json({ error: 'propertyId and reason are required.' });
     }
 
     const property = await prisma.property.findUnique({
@@ -216,10 +211,9 @@ export const flagDispute = async (req, res, next) => {
     });
 
     if (!property) {
-      return res.status(404).json({ error: 'No property file exists under this core sequence ID.' });
+      return res.status(404).json({ error: 'Property not found.' });
     }
 
-    // Flag property as high risk dispute
     const updatedProperty = await prisma.property.update({
       where: { id: propertyId },
       data: {
@@ -248,7 +242,7 @@ export const flagDispute = async (req, res, next) => {
     }
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'PROPERTY_DISPUTE_FLAGGED',
       `Registrar flagged property ${property.propertyId} as DISPUTED. Intercepted ${pendingTransfers.length} pending transfers.`,
       req.ip
@@ -264,21 +258,20 @@ export const flagDispute = async (req, res, next) => {
   }
 };
 
-// 5. INITIATE TRANSFER (SELLER OFFERS DEED SANCTION)
 export const initiateTransfer = async (req, res, next) => {
   try {
     const { propertyId, toOwnerOneId, agreedPriceBDT } = req.body;
     if (!propertyId || !toOwnerOneId || !agreedPriceBDT) {
-      return res.status(400).json({ error: 'propertyId, recipient OneID and agreedPriceBDT amount are required.' });
+      return res.status(400).json({ error: 'propertyId, toOwnerOneId, and agreedPriceBDT are required.' });
     }
 
-    const seller = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const seller = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!seller || !seller.oneid) {
-      return res.status(400).json({ error: 'Seller account lacks a registered and validated OneID token.' });
+      return res.status(400).json({ error: 'Your account is missing a OneID.' });
     }
 
     if (seller.oneid === toOwnerOneId) {
-      return res.status(400).json({ error: 'Self-transfer sequence blocked. You cannot sell a land title to your own OneID.' });
+      return res.status(400).json({ error: 'You cannot transfer property to yourself.' });
     }
 
     const property = await prisma.property.findUnique({
@@ -289,20 +282,18 @@ export const initiateTransfer = async (req, res, next) => {
     }
 
     if (property.currentOwnerOneId !== seller.oneid) {
-      return res.status(403).json({ error: 'Permission denied: Seller is not the designated legal title holder of this property.' });
+      return res.status(403).json({ error: 'You are not the owner of this property.' });
     }
 
     if (property.hasDisputeFlag) {
-      return res.status(400).json({ error: 'Security Intercept: This property is flagged with an active boundary dispute and cannot be transferred.' });
+      return res.status(400).json({ error: 'This property has an active dispute and cannot be transferred.' });
     }
 
-    // Buyer must refer to a registered citizen
     const buyerUser = await prisma.user.findUnique({ where: { oneid: toOwnerOneId } });
     if (!buyerUser) {
-      return res.status(400).json({ error: 'Recipient OneID does not match any registered citizen in Bangladesh Core.' });
+      return res.status(400).json({ error: 'Recipient OneID not found.' });
     }
 
-    // Ensure no ongoing transfers
     const activeTransfer = await prisma.propertyTransfer.findFirst({
       where: {
         propertyId,
@@ -310,10 +301,9 @@ export const initiateTransfer = async (req, res, next) => {
       }
     });
     if (activeTransfer) {
-      return res.status(400).json({ error: 'Ownership transfer already in lock state. Cancel ongoing transfer before initiating a new one.' });
+      return res.status(400).json({ error: 'This property already has an active transfer. Cancel it first.' });
     }
 
-    // Cryptographic signature compute
     const timestamp = new Date().toISOString();
     const sellerSignatureHash = sha256(seller.oneid + propertyId + parseFloat(agreedPriceBDT) + timestamp);
 
@@ -332,13 +322,13 @@ export const initiateTransfer = async (req, res, next) => {
     if (buyerUser.email) {
       await notifyUser(
         buyerUser.email,
-        '📥 OneID Land Deed Mutation: Signature Request',
-        `An ownership transfer request for property ID ${property.propertyId} (${property.title}) has been initiated by ${seller.name} for BDT ${agreedPriceBDT}. Please log and sign with your OneID.`
+        '📥 Property Transfer Signature Request',
+        `An ownership transfer for property ${property.propertyId} (${property.title}) was initiated by ${seller.name} for BDT ${agreedPriceBDT}. Please sign in to accept.`
       );
     }
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'PROPERTY_TRANSFER_INITIATED',
       `Seller initiated transfer for property ${property.propertyId} to ${toOwnerOneId} (Sig: ${sellerSignatureHash.slice(0, 10)})`,
       req.ip
@@ -350,17 +340,16 @@ export const initiateTransfer = async (req, res, next) => {
   }
 };
 
-// 6. BUYER CONFIRMS TRANSFER
 export const buyerConfirmTransfer = async (req, res, next) => {
   try {
     const { transferId } = req.body;
     if (!transferId) {
-      return res.status(400).json({ error: 'transferId parameter is missing.' });
+      return res.status(400).json({ error: 'transferId is required.' });
     }
 
-    const buyer = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const buyer = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!buyer || !buyer.oneid) {
-      return res.status(400).json({ error: 'Buyer accounts require a verified OneID identity.' });
+      return res.status(400).json({ error: 'Your account is missing a OneID.' });
     }
 
     const transfer = await prisma.propertyTransfer.findUnique({
@@ -368,19 +357,19 @@ export const buyerConfirmTransfer = async (req, res, next) => {
       include: { property: true }
     });
     if (!transfer) {
-      return res.status(404).json({ error: 'Land deed transfer log not found.' });
+      return res.status(404).json({ error: 'Transfer not found.' });
     }
 
     if (transfer.toOwnerOneId !== buyer.oneid) {
-      return res.status(403).json({ error: 'Security mismatch: You are not specified as the designated buyer for this land deed.' });
+      return res.status(403).json({ error: 'You are not the buyer for this transfer.' });
     }
 
     if (transfer.status !== 'PENDING_BUYER_SIGN') {
-      return res.status(400).json({ error: 'Transfer states are unsuited for signature at this timestamp.' });
+      return res.status(400).json({ error: 'Transfer is not waiting for your signature.' });
     }
 
     if (transfer.property.hasDisputeFlag) {
-      return res.status(400).json({ error: 'Sovereign Lock: Land deed carries a boundary dispute blocking the mutual process.' });
+      return res.status(400).json({ error: 'This property has a dispute and cannot be transferred.' });
     }
 
     const timestamp = new Date().toISOString();
@@ -396,7 +385,7 @@ export const buyerConfirmTransfer = async (req, res, next) => {
     });
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'PROPERTY_TRANSFER_SIGNED_BUYER',
       `Buyer signed deed ${transferId}. Status updated to PENDING_ADMIN_APPROVAL (Sig: ${buyerSignatureHash.slice(0, 10)})`,
       req.ip
@@ -408,12 +397,11 @@ export const buyerConfirmTransfer = async (req, res, next) => {
   }
 };
 
-// 7. PROPERTY_ADMIN APPROVES AND DISPATCHES DUAL-SIGNsmart contract MUTATION
 export const adminApproveTransfer = async (req, res, next) => {
   try {
     const { transferId } = req.body;
     if (!transferId) {
-      return res.status(400).json({ error: 'transferId parameter is required.' });
+      return res.status(400).json({ error: 'transferId is required.' });
     }
 
     const transfer = await prisma.propertyTransfer.findUnique({
@@ -421,41 +409,37 @@ export const adminApproveTransfer = async (req, res, next) => {
       include: { property: true }
     });
     if (!transfer) {
-      return res.status(404).json({ error: 'Transfer request could not be located.' });
+      return res.status(404).json({ error: 'Transfer not found.' });
     }
 
     const property = transfer.property;
-    const adminUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const adminUser = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     const adminOneId = adminUser?.oneid || 'ADMIN-SYSTEM';
 
-    // SMART CONTRACT CHECK: validate all 4 conditions
-    // Tax clearance check for the seller
     const sellerTaxProfile = await prisma.taxProfile.findUnique({ where: { citizenOneId: transfer.fromOwnerOneId }, include: { returns: true } });
     let taxArrears = 0;
     if (sellerTaxProfile) {
-      const unpaidReturns = sellerTaxProfile.returns.filter(r => ['UNPAID', 'PARTIALLY_PAID'].includes(r.paymentStatus));
+      const unpaidReturns = sellerTaxProfile.returns.filter(r => ['UNPAID', 'PARTIAL'].includes(r.paymentStatus));
       taxArrears = unpaidReturns.reduce((sum, r) => sum + ((r.finalTax || 0) - (r.paidAmount || 0)), 0);
     }
     if (taxArrears > 0) {
-      return res.status(403).json({ error: 'SMART CONTRACT FAILED: Property transfer blocked because the seller has uncleared tax arrears.' });
+      return res.status(403).json({ error: 'Transfer blocked: seller has unpaid tax arrears.' });
     }
     
     const sellerSigned = !!transfer.sellerSignatureHash && !!transfer.sellerSignedAt;
     const buyerSigned = !!transfer.buyerSignatureHash && !!transfer.buyerSignedAt;
     const hasNoDispute = !property.hasDisputeFlag;
-    const adminApproved = true; // This action itself serves as the admin approval condition
 
     if (!sellerSigned) {
-      return res.status(403).json({ error: 'SMART CONTRACT FAILED: Seller has not signed the property deed.' });
+      return res.status(403).json({ error: 'Seller has not signed yet.' });
     }
     if (!buyerSigned) {
-      return res.status(403).json({ error: 'SMART CONTRACT FAILED: Buyer has not accepted or signed the property deed.' });
+      return res.status(403).json({ error: 'Buyer has not signed yet.' });
     }
     if (!hasNoDispute) {
-      return res.status(403).json({ error: 'SMART CONTRACT FAILED: Property has an active dispute block.' });
+      return res.status(403).json({ error: 'Property has an active dispute.' });
     }
 
-    // append block record
     const ledgerRecord = await appendLedgerRecord('PROPERTY', {
       eventType: 'OWNERSHIP_TRANSFERRED',
       propertyId: property.id,
@@ -466,7 +450,6 @@ export const adminApproveTransfer = async (req, res, next) => {
       buyerSigHash: transfer.buyerSignatureHash
     }, prisma);
 
-    // Update property owner and clear old dispute states if any, reset transfer state
     await prisma.property.update({
       where: { id: property.id },
       data: {
@@ -491,20 +474,20 @@ export const adminApproveTransfer = async (req, res, next) => {
     if (sellerUser?.email) {
       await notifyUser(
         sellerUser.email,
-        '🎉 Property Deed Successfully Mutated & Closed',
-        `The ownership mutation for Property ${property.propertyId} has been fully approved by the Registrar and signed to the national ledger. Value: BDT ${transfer.agreedPriceBDT}.`
+        '🎉 Property Transfer Completed',
+        `Property transfer for ${property.propertyId} has been approved.`
       );
     }
     if (buyerUser?.email) {
       await notifyUser(
         buyerUser.email,
-        '🎉 Property Deed Transfer Completed successfully',
-        `Congratulations! Property ${property.propertyId} (${property.title}) is now registered to your OneID. Mutation verified at block index sequence.`
+        '🎉 Property Transfer Completed',
+        `Property ${property.propertyId} (${property.title}) is now registered to your OneID.`
       );
     }
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'PROPERTY_TRANSFER_MUTATED',
       `Sovereign admin approved mutation for deed ${transferId}. Property owner is now ${transfer.toOwnerOneId}. Ledger ID: ${ledgerRecord.id}`,
       req.ip
@@ -516,7 +499,6 @@ export const adminApproveTransfer = async (req, res, next) => {
   }
 };
 
-// 8. CANCEL TRANSFER
 export const cancelTransfer = async (req, res, next) => {
   try {
     const { transferId } = req.body;
@@ -524,9 +506,9 @@ export const cancelTransfer = async (req, res, next) => {
       return res.status(400).json({ error: 'transferId is required.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
-      return res.status(403).json({ error: 'Requester needs a valid OneID.' });
+      return res.status(403).json({ error: 'Your account is missing a OneID.' });
     }
 
     const transfer = await prisma.propertyTransfer.findUnique({
@@ -537,12 +519,11 @@ export const cancelTransfer = async (req, res, next) => {
     }
 
     if (transfer.status === 'COMPLETED' || transfer.status === 'CANCELLED') {
-      return res.status(400).json({ error: 'This transaction is already closed and cannot be cancelled.' });
+      return res.status(400).json({ error: 'Transfer is already closed.' });
     }
 
-    // Must be either seller or buyer to cancel
     if (transfer.fromOwnerOneId !== user.oneid && transfer.toOwnerOneId !== user.oneid) {
-      return res.status(403).json({ error: 'Only participants are allowed to rescind property deed mutations.' });
+      return res.status(403).json({ error: 'Only the buyer or seller can cancel this transfer.' });
     }
 
     const updated = await prisma.propertyTransfer.update({
@@ -553,7 +534,7 @@ export const cancelTransfer = async (req, res, next) => {
     });
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'PROPERTY_TRANSFER_CANCELLED',
       `Citizen cancelled transfer proposal ${transferId}.`,
       req.ip

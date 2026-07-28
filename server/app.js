@@ -37,8 +37,18 @@ app.use(helmet({
 app.use(express.json());
 
 // 3. CORS CONFIGURATION
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000'];
+
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS: Origin not allowed'));
+    }
+  },
   credentials: true
 }));
 
@@ -46,13 +56,18 @@ app.use(cors({
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 1000,
-  message: { error: 'Cyberdefense limit exceeded. Too many requests. Please try again after 15 minutes.' },
-  skip: (req) => {
-    return req.path.includes('/verify-otp') || req.originalUrl.includes('/verify-otp');
-  }
+  message: { error: 'Too many requests. Try again in 15 minutes.' }
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 5,
+  message: { error: 'Too many OTP attempts. Try again in 5 minutes.' }
 });
 
 app.use('/api', apiLimiter);
+app.use('/api/auth/verify-otp', otpLimiter);
+app.use('/api/auth/verify-mfa', otpLimiter);
 
 // 5. MODULES / MOUNT ROUTERS
 app.use('/api/auth', authRouter);
@@ -66,7 +81,7 @@ app.use('/api/vehicle', vehicleRouter);
 app.use('/api/property', propertyRouter);
 app.use('/api/civil-registry', civilRegistryRouter);
 
-// Elegant Backward-Compatibility Wrappers
+// Legacy route aliases
 app.use('/api/elections', (req, res, next) => {
   req.url = '/elections' + req.url;
   votingRouter(req, res, next);
@@ -92,23 +107,22 @@ app.use('/api/reports', (req, res, next) => {
   votingRouter(req, res, next);
 });
 
-// Specific OneID Platform Health Checking API
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     platform: 'OneID',
     version: '1.0.0',
     modules: ['voting', 'tax', 'vehicle', 'property', 'civil-registry'],
-    system: 'OneID Bangladesh Core Platform Hub Node'
+    system: 'OneID Bangladesh'
   });
 });
 
-// Security central error handler middleware
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error('💥 Core API Runtime Fault Record:', err);
+  console.error('[error]', err);
   const status = err.status || 500;
   res.status(status).json({
-    error: 'An internal OneID Bangladesh service-layer exception occurred.',
+    error: 'Internal server error.',
     message: process.env.NODE_ENV === 'production' ? 'Access Restricted' : err.message
   });
 });

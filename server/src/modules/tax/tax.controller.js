@@ -7,19 +7,19 @@ import { logEvent } from '../../core/audit.service.js';
 
 export const registerTaxProfile = async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user) {
-      return res.status(404).json({ error: 'Citizen account details not found.' });
+      return res.status(404).json({ error: 'Account not found.' });
     }
     if (!user.oneid) {
-      return res.status(400).json({ error: 'Citizen does not have a registered OneID.' });
+      return res.status(400).json({ error: 'Account missing OneID.' });
     }
 
     const existing = await prisma.taxProfile.findUnique({
       where: { citizenOneId: user.oneid }
     });
     if (existing) {
-      return res.status(409).json({ error: 'A tax profile is already registered under this OneID.' });
+      return res.status(409).json({ error: 'You already have a tax profile.' });
     }
 
     const twoDigitYear = String(new Date().getFullYear()).slice(-2);
@@ -48,7 +48,7 @@ export const registerTaxProfile = async (req, res, next) => {
 
 export const getMyTaxProfile = async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
       return res.json(null);
     }
@@ -76,7 +76,7 @@ export const calculateTax = async (req, res, next) => {
     let targetDOB = dateOfBirth;
 
     if (!targetGender || !targetDOB) {
-      const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+      const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
       if (user) {
         if (!targetGender) targetGender = 'MALE';
         if (!targetDOB) targetDOB = user.dateOfBirth || '1990-01-01';
@@ -163,16 +163,16 @@ export const submitTaxReturn = async (req, res, next) => {
     const yearParsed = parseInt(taxYear);
     const incomeVal = parseFloat(grossIncome) || 0;
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
-      return res.status(400).json({ error: 'Citizen profile not registered or missing OneID.' });
+      return res.status(400).json({ error: 'Account not found or missing OneID.' });
     }
 
     const profile = await prisma.taxProfile.findUnique({
       where: { citizenOneId: user.oneid }
     });
     if (!profile) {
-      return res.status(400).json({ error: 'No TIN profile found. Please register a tax profile first.' });
+      return res.status(400).json({ error: 'No tax profile found. Please register one first.' });
     }
 
     const existing = await prisma.taxReturn.findUnique({
@@ -235,11 +235,9 @@ export const submitTaxReturn = async (req, res, next) => {
 
     const finalTax = totalCalculatedTax > 0 ? Math.max(totalCalculatedTax, minimumTax) : 0;
 
-    // Check anomalies
     let anomalyFlag = false;
     let anomalyReason = null;
 
-    // 1. Income drop >40% from previous year
     const previousReturn = await prisma.taxReturn.findFirst({
       where: {
         taxProfileId: profile.id,
@@ -255,7 +253,6 @@ export const submitTaxReturn = async (req, res, next) => {
       }
     }
 
-    // 2. Income >10,000,000 on first filing
     const returnsCount = await prisma.taxReturn.count({
       where: { taxProfileId: profile.id }
     });
@@ -265,7 +262,6 @@ export const submitTaxReturn = async (req, res, next) => {
       anomalyReason = `Gross income exceeds BDT 10,000,000 (BDT ${incomeVal.toLocaleString()}). Required mandatory audit review.`;
     }
 
-    // Append to Blockchain ledger
     const ledgerRecord = await appendLedgerRecord('TAX', {
       oneId: user.oneid,
       taxYear: yearParsed,
@@ -324,6 +320,16 @@ export const payTax = async (req, res, next) => {
 
     if (!taxReturn) {
       return res.status(404).json({ error: 'Tax return record not found.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    if (taxReturn.taxProfile.citizenOneId !== user.oneid) {
+      return res.status(403).json({ error: 'You are not authorized to pay this tax return.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    if (taxReturn.taxProfile.citizenOneId !== user.oneid) {
+      return res.status(403).json({ error: 'You are not authorized to pay this tax return.' });
     }
 
     if (parseFloat(amount) < taxReturn.finalTax) {
@@ -504,7 +510,7 @@ export const flagAnomaly = async (req, res, next) => {
 
 export const downloadTinCertificate = async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     const profile = await prisma.taxProfile.findUnique({
       where: { citizenOneId: user.oneid }
     });

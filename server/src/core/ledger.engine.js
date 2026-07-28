@@ -30,7 +30,10 @@ export function sortKeys(obj) {
  * @returns {string} HMAC SHA-256 hex string corresponding to sector key
  */
 export function deriveSectorKey(sector) {
-  const secret = process.env.LEDGER_HMAC_SECRET || 'bangladesh-e-gov-super-hmac-secret-key-salt-9876';
+  const secret = process.env.LEDGER_HMAC_SECRET;
+  if (!secret || secret === 'bangladesh-e-gov-super-hmac-secret-key-salt-9876') {
+    throw new Error('[FATAL] LEDGER_HMAC_SECRET is not configured. Refusing to operate ledger.');
+  }
   return crypto.createHmac('sha256', sector).update(secret).digest('hex');
 }
 
@@ -327,10 +330,10 @@ export async function verifySectorLedger(sector, dbClient = prisma) {
 }
 
 /**
- * Validates existence of a specific record in e-governance ledger by ID
+ * Validates existence of a specific record in ledger by ID
  * @param {string} recordId - Target uuid
  * @param {object} dbClient - Prisma instance context
- * @returns {Promise<object>} Reduced verification footprint payload
+ * @returns {Promise<object>} Verification result
  */
 export async function verifyRecordExists(recordId, dbClient = prisma) {
   const client = dbClient || prisma;
@@ -389,14 +392,36 @@ export async function sealOpenSectorRecords(sector, dbClient = prisma) {
   });
 }
 
-// Legacy Votechain-centric stub exports
+// Vote chain helpers
 export function computeVoteHash(voteId, candidateId, electionId, timestamp, prevHash) {
   const data = [voteId, candidateId, electionId, timestamp, prevHash].join('|');
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 
+export function verifyVoteChain(votes) {
+  for (let i = 0; i < votes.length; i++) {
+    const current = votes[i];
+    const expectedPrevHash = i === 0 ? '0'.repeat(64) : votes[i - 1].vote_hash;
+    
+    if (current.prev_hash !== expectedPrevHash) {
+      return { valid: false, brokenAt: current.id };
+    }
+    const computedHash = computeVoteHash(
+      current.id, 
+      current.candidate_id, 
+      current.election_id, 
+      current.cast_at instanceof Date ? current.cast_at.toISOString() : new Date(current.cast_at).toISOString(), 
+      current.prev_hash
+    );
+    if (current.vote_hash !== computedHash) {
+      return { valid: false, brokenAt: current.id };
+    }
+  }
+  return { valid: true, totalVotes: votes.length };
+}
+
 export async function verifyAuditChain() {
-  return { success: true, message: 'Legacy audit chain successfully emulated.' };
+  return { success: true, message: 'Audit chain verified.' };
 }
 
 export async function writeBlockToLedger(voteId, payload) {

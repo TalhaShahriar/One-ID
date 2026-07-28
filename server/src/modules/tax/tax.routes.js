@@ -22,7 +22,7 @@ router.get('/profile', authenticateJWT, getMyTaxProfile);
 router.post('/calculate', authenticateJWT, calculateTax);
 router.post('/submit', authenticateJWT, submitTaxReturn);
 router.post('/pay', authenticateJWT, payTax);
-router.get('/receipt/:receiptNumber', getMyReceipt);
+router.get('/receipt/:receiptNumber', authenticateJWT, getMyReceipt);
 router.get('/tin/certificate', authenticateJWT, downloadTinCertificate);
 
 // PDF Generation Endpoint (POST as requested, but we can also allow GET for ease of download)

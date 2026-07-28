@@ -144,7 +144,7 @@ router.post('/register-verify', authenticateJWT, async (req, res, next) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     // Handles fallback interactive mode if browser environment lacks WebAuthn hardware bindings
-    if (isSimulation || !registrationResponse?.id) {
+    if ((isSimulation && process.env.NODE_ENV !== 'production') || !registrationResponse?.id) {
       const simulatedCredId = `sim_passkey_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const newCred = await prisma.webAuthnCredential.create({
         data: {
@@ -226,21 +226,8 @@ router.post('/login-options', async (req, res, next) => {
             { email: cleanId },
             { phone: cleanId },
             { phone: phoneAlt },
-            { oneid: cleanId },
-            { nid: cleanId }
-          ]
-        },
-        include: { webAuthnCredentials: true }
-      });
-    }
-
     if (!user) {
-      user = await prisma.user.findFirst({
-        where: { role: 'VOTER' },
-        include: { webAuthnCredentials: true }
-      }) || await prisma.user.findFirst({
-        include: { webAuthnCredentials: true }
-      });
+      return res.status(401).json({ error: 'No citizen found with this identifier.' });
     }
 
     const rpID = getRpID(req);
@@ -305,8 +292,7 @@ router.post('/login-verify', async (req, res, next) => {
             { email: cleanId },
             { phone: cleanId },
             { phone: phoneAlt },
-            { oneid: cleanId },
-            { nid: cleanId }
+            { oneid: cleanId }
           ]
         },
         include: { webAuthnCredentials: true }
@@ -314,20 +300,11 @@ router.post('/login-verify', async (req, res, next) => {
     }
 
     if (!user) {
-      user = await prisma.user.findFirst({
-        where: { role: 'VOTER' },
-        include: { webAuthnCredentials: true }
-      }) || await prisma.user.findFirst({
-        include: { webAuthnCredentials: true }
-      });
-    }
-
-    if (!user) {
-      return res.status(404).json({ error: 'No citizen record found on OneID network.' });
+      return res.status(401).json({ error: 'No citizen record found on OneID network.' });
     }
 
     // Handles fallback simulation or demo interactive scan
-    if (isSimulation || !authResponse) {
+    if ((isSimulation && process.env.NODE_ENV !== 'production') || !authResponse) {
       const token = jwt.sign(
         {
           userId: user.id,

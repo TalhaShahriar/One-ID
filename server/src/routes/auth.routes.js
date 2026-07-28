@@ -34,7 +34,7 @@ router.post('/register', async (req, res, next) => {
     } = req.body;
 
     if (!name || !email || !phone || !nid || !password || !role || !constituency) {
-      return res.status(400).json({ error: 'All registration parameters are mandatory.' });
+      return res.status(400).json({ error: 'All fields are required.' });
     }
 
     if (role !== 'VOTER' && role !== 'CANDIDATE') {
@@ -102,7 +102,7 @@ router.post('/verify-otp', async (req, res, next) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and OTP verification token must be supplied.' });
+      return res.status(400).json({ error: 'Email and OTP are required.' });
     }
 
     const user = await prisma.user.findUnique({
@@ -113,12 +113,14 @@ router.post('/verify-otp', async (req, res, next) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    if (user.otp !== otp && otp !== '123456') {
+    const DEV_OTP_BYPASS = process.env.NODE_ENV !== 'production' && otp === '123456';
+
+    if (user.otp !== otp && !DEV_OTP_BYPASS) {
       return res.status(400).json({ error: 'Invalid OTP' });
     }
 
     const now = new Date();
-    if (user.otp_expires_at && user.otp_expires_at < now && otp !== '123456') {
+    if (user.otp_expires_at && user.otp_expires_at < now && !DEV_OTP_BYPASS) {
       return res.status(400).json({ error: 'OTP expired. Request a new one.' });
     }
 
@@ -145,7 +147,7 @@ router.post('/resend-otp', async (req, res, next) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ error: 'Email parameter is required.' });
+      return res.status(400).json({ error: 'Email is required.' });
     }
 
     const user = await prisma.user.findUnique({
@@ -179,21 +181,19 @@ router.post('/resend-otp', async (req, res, next) => {
   }
 });
 
-// POST /api/auth/login
 router.post('/login', async (req, res, next) => {
   try {
     const { identifier, password } = req.body;
-    console.log(`[LOGIN] Attempt: identifier=${identifier}`);
 
     if (!identifier || !password) {
-      return res.status(400).json({ error: 'Email/phone and password fields are required.' });
+      return res.status(400).json({ error: 'Email/phone and password are required.' });
     }
 
     let phoneAlt = identifier;
     if (identifier.startsWith('+8801')) {
-      phoneAlt = identifier.replace('+88', ''); // 01...
+      phoneAlt = identifier.replace('+88', '');
     } else if (/^01\d{9}$/.test(identifier)) {
-      phoneAlt = `+88${identifier}`; // +8801...
+      phoneAlt = `+88${identifier}`;
     }
 
     const user = await prisma.user.findFirst({
@@ -207,27 +207,20 @@ router.post('/login', async (req, res, next) => {
     });
 
     if (!user) {
-      console.log(`[LOGIN] User not found for identifier: ${identifier}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     if (!user.is_verified) {
-      console.log(`[LOGIN] User ${user.email} not verified`);
       return res.status(403).json({ error: 'Account not verified. Please verify your email first.', unverified: true });
     }
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
-      console.log(`[LOGIN] Invalid password for ${user.email}`);
       await logEvent(user.id, 'FAILED_LOGIN', 'Failed login attempt', req.ip, null);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log(`[LOGIN] Password valid for ${user.email}`);
-
-    // [TESTING] Skip MFA for SUPER_ADMIN
-    if (user.role === 'SUPER_ADMIN') {
-      console.log(`[LOGIN] Skipping MFA for SUPER_ADMIN ${user.email}`);
+    if (user.role === 'SUPER_ADMIN' && process.env.NODE_ENV !== 'production') {
       const token = jwt.sign(
         {
           userId: user.id,
@@ -282,17 +275,16 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-// POST /api/auth/verify-mfa
 router.post('/verify-mfa', async (req, res, next) => {
   try {
     const { email, firebaseIdToken, otp } = req.body;
 
     if (!email) {
-      return res.status(400).json({ error: 'Email must be supplied.' });
+      return res.status(400).json({ error: 'Email is required.' });
     }
 
     if (!firebaseIdToken && !otp) {
-      return res.status(400).json({ error: 'Either Firebase ID token or Email OTP must be supplied.' });
+      return res.status(400).json({ error: 'A Firebase token or OTP is required.' });
     }
 
     const user = await prisma.user.findUnique({
@@ -304,12 +296,13 @@ router.post('/verify-mfa', async (req, res, next) => {
     }
 
     if (otp) {
+      const DEV_OTP_BYPASS = process.env.NODE_ENV !== 'production' && otp === '123456';
       // Email OTP verification
-      if (user.otp !== otp && otp !== '123456') {
+      if (user.otp !== otp && !DEV_OTP_BYPASS) {
         return res.status(400).json({ error: 'Invalid OTP' });
       }
       const now = new Date();
-      if (user.otp_expires_at && user.otp_expires_at < now && otp !== '123456') {
+      if (user.otp_expires_at && user.otp_expires_at < now && !DEV_OTP_BYPASS) {
         return res.status(400).json({ error: 'OTP expired. Request a new one.' });
       }
       
@@ -462,12 +455,14 @@ router.post('/reset-password', async (req, res, next) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    if (user.otp !== otp && otp !== '123456') {
+    const DEV_OTP_BYPASS = process.env.NODE_ENV !== 'production' && otp === '123456';
+
+    if (user.otp !== otp && !DEV_OTP_BYPASS) {
       return res.status(400).json({ error: 'Invalid verification OTP.' });
     }
 
     const now = new Date();
-    if (user.otp_expires_at && user.otp_expires_at < now && otp !== '123456') {
+    if (user.otp_expires_at && user.otp_expires_at < now && !DEV_OTP_BYPASS) {
       return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
     }
 

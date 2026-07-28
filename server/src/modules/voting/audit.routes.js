@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../prisma.js';
 import { authenticateJWT, authorizeRoles } from '../../core/auth.middleware.js';
-import { verifyChain } from '../../core/ledger.engine.js';
+import { verifyVoteChain } from '../../core/ledger.engine.js';
 import { logEvent } from '../../core/audit.service.js';
 import { lastVerificationResults } from './voting.cron.js';
 
@@ -98,7 +98,7 @@ router.get('/blockchain/status', authenticateJWT, authorizeRoles('ADMIN', 'SUPER
           orderBy: { cast_at: 'asc' }
         });
 
-        const outcome = verifyChain(votes);
+        const outcome = verifyVoteChain(votes);
         const statusObj = {
           electionId: election.id,
           title: election.title,
@@ -146,7 +146,7 @@ router.post('/blockchain/verify-now/:electionId', authenticateJWT, authorizeRole
       orderBy: { cast_at: 'asc' }
     });
 
-    const verificationResult = verifyChain(votes);
+    const verificationResult = verifyVoteChain(votes);
 
     const recentVotes = await prisma.vote.findMany({
       where: { election_id: electionId },

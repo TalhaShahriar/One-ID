@@ -3,7 +3,7 @@ import { prisma } from '../../prisma.js';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
 import { authenticateJWT, authorizeRoles } from '../../core/auth.middleware.js';
-import { computeVoteHash, verifyChain } from '../../core/ledger.engine.js';
+import { computeVoteHash, verifyVoteChain } from '../../core/ledger.engine.js';
 import { logEvent } from '../../core/audit.service.js';
 import { runAllChecks } from '../../../services/anomalyEngine.js';
 import { extractFingerprint } from '../../utils/deviceFingerprint.js';
@@ -287,7 +287,7 @@ router.get('/blockchain/verify/:electionId', authenticateJWT, authorizeRoles('AD
       orderBy: { cast_at: 'asc' }
     });
 
-    const verificationResult = verifyChain(votes);
+    const verificationResult = verifyVoteChain(votes);
 
     await logEvent(
       req.user.userId,

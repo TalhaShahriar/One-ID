@@ -4,10 +4,8 @@ import { logEvent } from '../../core/audit.service.js';
 import { createTransporter } from '../../shared/email.service.js';
 import crypto from 'crypto';
 
-// Help send visual emails / logs
 async function notifyUser(email, subject, bodyText) {
   const transporter = createTransporter();
-  console.log(`✉️ [OUTGOING VEHICLE NOTIFICATION] To: ${email} | Subject: "${subject}" | Msg: ${bodyText}`);
   if (!transporter) return;
   try {
     await transporter.sendMail({
@@ -16,11 +14,11 @@ async function notifyUser(email, subject, bodyText) {
       subject,
       html: `
         <div style="font-family: sans-serif; padding: 25px; background: #fafafa; border: 1px solid #eaeaea; border-radius: 12px; max-width: 550px; margin: auto;">
-          <h2 style="color: #006a4e; margin-top: 0;">OneID Bangladesh • BRTA Node 🇧🇩</h2>
+          <h2 style="color: #006a4e; margin-top: 0;">OneID Bangladesh • BRTA 🇧🇩</h2>
           <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;" />
           <p style="font-size: 14px; line-height: 1.6; color: #333;">${bodyText}</p>
           <hr style="border: 0; border-top: 1px solid #eee; margin-top: 25px; margin-bottom: 10px;" />
-          <caption style="font-size: 11px; color: #888;">This is an automated administrative broadcast from the OneID Core Blockchain Portal.</caption>
+          <caption style="font-size: 11px; color: #888;">Automated notification from OneID.</caption>
         </div>
       `
     });
@@ -34,19 +32,19 @@ export const applyForLicense = async (req, res, next) => {
   try {
     const { category, bloodGroup } = req.body;
     if (!category) {
-      return res.status(400).json({ error: 'License category is a mandatory requirement.' });
+      return res.status(400).json({ error: 'Category is required.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
-      return res.status(400).json({ error: 'Citizen account is not verified or lacks a OneID fingerprint.' });
+      return res.status(400).json({ error: 'Account not found or missing OneID.' });
     }
 
     const existingDl = await prisma.drivingLicense.findFirst({
       where: { citizenOneId: user.oneid }
     });
     if (existingDl) {
-      return res.status(409).json({ error: 'A driving license or application is already registered for this citizen.' });
+      return res.status(409).json({ error: 'You already have a license or pending application.' });
     }
 
     const division = user.division || 'DHAKA';
@@ -76,7 +74,7 @@ export const applyForLicense = async (req, res, next) => {
     });
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'LICENSE_APPLIED',
       `Driving license category ${category} application requested with suffix ${licenseNumber}`,
       req.ip
@@ -93,7 +91,7 @@ export const approveLicense = async (req, res, next) => {
   try {
     const { licenseId, action, rejectionReason } = req.body;
     if (!licenseId || !action) {
-      return res.status(400).json({ error: 'licenseId and action parameter are required.' });
+      return res.status(400).json({ error: 'licenseId and action are required.' });
     }
 
     const dl = await prisma.drivingLicense.findUnique({
@@ -130,12 +128,12 @@ export const approveLicense = async (req, res, next) => {
         await notifyUser(
           dl.citizen.email,
           '🎉 Driving License Application Approved - BRTA Node',
-          `Your driving license application (${dl.licenseNumber}) has been approved! The smart card credentials have been logged to the OneID sovereign ledger. Valid until ${expiryDate.toDateString()}.`
+          `Your driving license application (${dl.licenseNumber}) has been approved! Valid until ${expiryDate.toDateString()}.`
         );
       }
 
       await logEvent(
-        req.user.userId,
+        parseInt(req.user.userId, 10),
         'LICENSE_APPROVE_SUCCESS',
         `Approved driving license ${dl.licenseNumber} for citizen ${dl.citizenOneId}`,
         req.ip
@@ -147,7 +145,7 @@ export const approveLicense = async (req, res, next) => {
         where: { id: licenseId },
         data: {
           status: 'REJECTED',
-          rejectionReason: rejectionReason || 'Information criteria unfulfilled.'
+          rejectionReason: rejectionReason || 'Requirements not met.'
         }
       });
 
@@ -155,12 +153,12 @@ export const approveLicense = async (req, res, next) => {
         await notifyUser(
           dl.citizen.email,
           '⚠️ Driving License Refused - BRTA Node',
-          `Your license application (${dl.licenseNumber}) was rejected. Reason given: "${rejectionReason || 'Criteria mismatch.'}"`
+          `Your license application (${dl.licenseNumber}) was rejected. Reason given: "${rejectionReason || 'Does not meet requirements.'}"`
         );
       }
 
       await logEvent(
-        req.user.userId,
+        parseInt(req.user.userId, 10),
         'LICENSE_REJECT_SUCCESS',
         `Rejected application ${dl.licenseNumber} due to: ${rejectionReason}`,
         req.ip
@@ -168,7 +166,7 @@ export const approveLicense = async (req, res, next) => {
 
       return res.json(updated);
     } else {
-      return res.status(400).json({ error: 'Action should be APPROVE or REJECT.' });
+      return res.status(400).json({ error: 'Action must be APPROVE or REJECT.' });
     }
   } catch (err) {
     next(err);
@@ -180,30 +178,28 @@ export const registerVehicle = async (req, res, next) => {
   try {
     const { type, make, model, year, color, engineNo, chassisNo } = req.body;
     if (!type || !make || !model || !year || !color || !engineNo || !chassisNo) {
-      return res.status(400).json({ error: 'Please furnish all vehicle registration technical attributes.' });
+      return res.status(400).json({ error: 'All vehicle details are required.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
-      return res.status(400).json({ error: 'Citizen profile not connected with a OneID.' });
+      return res.status(400).json({ error: 'Account missing OneID.' });
     }
 
-    // Citizen must have APPROVED license
     const dl = await prisma.drivingLicense.findFirst({
       where: { citizenOneId: user.oneid, status: 'APPROVED' }
     });
     if (!dl) {
-      return res.status(400).json({ error: 'Citizen must possess an APPROVED driving license in OneID before registering a physical vehicle.' });
+      return res.status(400).json({ error: 'You need an approved driving license to register a vehicle.' });
     }
 
-    // Uniqueness of engine and chassis numbers
     const existingEngine = await prisma.vehicle.findFirst({
       where: {
         OR: [{ engineNo }, { chassisNo }]
       }
     });
     if (existingEngine) {
-      return res.status(409).json({ error: 'Engine Number or Chassis Number is already in database.' });
+      return res.status(409).json({ error: 'Engine or chassis number already registered.' });
     }
 
     const divisionStr = (user.division || 'DHAKA').toUpperCase();
@@ -241,7 +237,7 @@ export const registerVehicle = async (req, res, next) => {
     });
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'VEHICLE_REGISTRATION_SUCCESS',
       `Registered vehicle ${registrationNo} for owner ${user.oneid}`,
       req.ip
@@ -256,7 +252,7 @@ export const registerVehicle = async (req, res, next) => {
 // 4. GET MY VEHICLES
 export const getMyVehicles = async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user || !user.oneid) {
       return res.json({ vehicles: [], license: null });
     }
@@ -293,14 +289,14 @@ export const getVehicleHistory = async (req, res, next) => {
   try {
     const { registrationNo } = req.params;
     if (!registrationNo) {
-      return res.status(400).json({ error: 'registrationNo is a mandatory query parameter.' });
+      return res.status(400).json({ error: 'registrationNo is required.' });
     }
 
     const vehicle = await prisma.vehicle.findFirst({
       where: { registrationNo }
     });
     if (!vehicle) {
-      return res.status(404).json({ error: 'No vehicle was discovered matching the registration code in the national registry.' });
+      return res.status(404).json({ error: 'Vehicle not found.' });
     }
 
     const transfers = await prisma.vehicleTransfer.findMany({
@@ -344,16 +340,16 @@ export const initiateTransfer = async (req, res, next) => {
   try {
     const { vehicleId, toOwnerOneId } = req.body;
     if (!vehicleId || !toOwnerOneId) {
-      return res.status(400).json({ error: 'Please furnish vehicleId and receiver toOwnerOneId.' });
+      return res.status(400).json({ error: 'vehicleId and toOwnerOneId are required.' });
     }
 
-    const seller = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const seller = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!seller || !seller.oneid) {
-      return res.status(400).json({ error: 'Seller account lacks a registered OneID.' });
+      return res.status(400).json({ error: 'Your account is missing a OneID.' });
     }
 
     if (seller.oneid === toOwnerOneId) {
-      return res.status(400).json({ error: 'Ownership transfer loop. You cannot sell a vehicle back to yourself.' });
+      return res.status(400).json({ error: 'You cannot transfer a vehicle to yourself.' });
     }
 
     const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
@@ -362,25 +358,23 @@ export const initiateTransfer = async (req, res, next) => {
     }
 
     if (vehicle.currentOwnerOneId !== seller.oneid) {
-      return res.status(403).json({ error: 'Administrative check rejected: seller is not the registered owner of this vehicle.' });
+      return res.status(403).json({ error: 'You are not the registered owner of this vehicle.' });
     }
 
-    // Buyer must have APPROVED driving license is a policy safeguard
     const buyerUser = await prisma.user.findUnique({
       where: { oneid: toOwnerOneId }
     });
     if (!buyerUser) {
-      return res.status(400).json({ error: 'The requested recipient OneID does not refer to a registered citizen.' });
+      return res.status(400).json({ error: 'Recipient OneID not found.' });
     }
 
     const buyerDl = await prisma.drivingLicense.findFirst({
       where: { citizenOneId: toOwnerOneId, status: 'APPROVED' }
     });
     if (!buyerDl) {
-      return res.status(400).json({ error: 'Policy Block: Buyer must hold a fully verified & APPROVED Driving License.' });
+      return res.status(400).json({ error: 'Buyer must have an approved driving license.' });
     }
 
-    // Check for open existing transfers
     const activeTransfer = await prisma.vehicleTransfer.findFirst({
       where: {
         vehicleId,
@@ -388,7 +382,7 @@ export const initiateTransfer = async (req, res, next) => {
       }
     });
     if (activeTransfer) {
-      return res.status(400).json({ error: 'This vehicle already has an ongoing ownership transfer sequence in process.' });
+      return res.status(400).json({ error: 'This vehicle already has an active transfer.' });
     }
 
     const transfer = await prisma.vehicleTransfer.create({
@@ -410,7 +404,7 @@ export const initiateTransfer = async (req, res, next) => {
     }
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'VEHICLE_TRANSFER_INITIATED',
       `Seller ${seller.oneid} initiated transfer of vehicle ${vehicle.registrationNo} to buyer ${toOwnerOneId}`,
       req.ip
@@ -427,12 +421,12 @@ export const buyerAcceptTransfer = async (req, res, next) => {
   try {
     const { transferId } = req.body;
     if (!transferId) {
-      return res.status(400).json({ error: 'transferId parameter is missing.' });
+      return res.status(400).json({ error: 'transferId is required.' });
     }
 
-    const buyer = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const buyer = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!buyer || !buyer.oneid) {
-      return res.status(400).json({ error: 'Buyer account is missing OneID.' });
+      return res.status(400).json({ error: 'Your account is missing a OneID.' });
     }
 
     const transfer = await prisma.vehicleTransfer.findUnique({
@@ -444,11 +438,11 @@ export const buyerAcceptTransfer = async (req, res, next) => {
     }
 
     if (transfer.toOwnerOneId !== buyer.oneid) {
-      return res.status(403).json({ error: 'Authorization error: you are not the designated buyer of this transfer.' });
+      return res.status(403).json({ error: 'You are not the buyer for this transfer.' });
     }
 
     if (transfer.status !== 'PENDING_BUYER_SIGN') {
-      return res.status(400).json({ error: 'Transfer status is currently not in buyer signature step.' });
+      return res.status(400).json({ error: 'Transfer is not waiting for your signature.' });
     }
 
     const updated = await prisma.vehicleTransfer.update({
@@ -460,7 +454,7 @@ export const buyerAcceptTransfer = async (req, res, next) => {
     });
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'VEHICLE_TRANSFER_SIGNED_BUYER',
       `Buyer ${buyer.oneid} signed and approved vehicle transfer ${transferId}. Awaiting final administrator audit.`,
       req.ip
@@ -477,7 +471,7 @@ export const adminCompleteTransfer = async (req, res, next) => {
   try {
     const { transferId } = req.body;
     if (!transferId) {
-      return res.status(400).json({ error: 'transferId parameter is required.' });
+      return res.status(400).json({ error: 'transferId is required.' });
     }
 
     const transfer = await prisma.vehicleTransfer.findUnique({
@@ -489,10 +483,9 @@ export const adminCompleteTransfer = async (req, res, next) => {
     }
 
     if (transfer.status !== 'PENDING_ADMIN') {
-      return res.status(400).json({ error: 'This transfer is not ready for administrator approval (or already closed).' });
+      return res.status(400).json({ error: 'Transfer is not pending admin approval.' });
     }
 
-    // Create cryptographic block seal
     const ledgerRecord = await appendLedgerRecord('VEHICLE', {
       eventType: 'OWNERSHIP_TRANSFER',
       vehicleId: transfer.vehicleId,
@@ -501,7 +494,6 @@ export const adminCompleteTransfer = async (req, res, next) => {
       transferId
     }, prisma);
 
-    // Update vehicle ownership details
     await prisma.vehicle.update({
       where: { id: transfer.vehicleId },
       data: {
@@ -519,7 +511,6 @@ export const adminCompleteTransfer = async (req, res, next) => {
       }
     });
 
-    // Notify original owner and new owner
     const originalOwner = await prisma.user.findFirst({ where: { oneid: transfer.fromOwnerOneId } });
     const newOwner = await prisma.user.findFirst({ where: { oneid: transfer.toOwnerOneId } });
 
@@ -527,11 +518,11 @@ export const adminCompleteTransfer = async (req, res, next) => {
       await notifyUser(originalOwner.email, '📤 Vehicle Ownership Formally Transferred', `Ownership of vehicle ${transfer.vehicle.registrationNo} has been successfully updated in OneID. You are no longer registered as owner.`);
     }
     if (newOwner?.email) {
-      await notifyUser(newOwner.email, '🎉 Vehicle Ownership Complete - BRTA Nod', `Congratulations! Ownership of vehicle ${transfer.vehicle.registrationNo} has been completed and registered to your OneID. Block ID sequence sealed.`);
+      await notifyUser(newOwner.email, '🎉 Vehicle Ownership Complete', `Congratulations! Ownership of vehicle ${transfer.vehicle.registrationNo} has been completed and registered to your OneID.`);
     }
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'VEHICLE_TRANSFER_COMPLETE',
       `Vehicle transfer ${transferId} complete! New owner is ${transfer.toOwnerOneId}`,
       req.ip
@@ -548,7 +539,7 @@ export const recordViolation = async (req, res, next) => {
   try {
     const { licenseId, vehicleId, violationType, fineAmount } = req.body;
     if (!licenseId || !violationType || !fineAmount) {
-      return res.status(400).json({ error: 'Please submit licenseId, violationType, and fineAmount parameters.' });
+      return res.status(400).json({ error: 'licenseId, violationType, and fineAmount are required.' });
     }
 
     const dl = await prisma.drivingLicense.findUnique({
@@ -559,7 +550,7 @@ export const recordViolation = async (req, res, next) => {
       return res.status(404).json({ error: 'Target Driving License not found.' });
     }
 
-    const admin = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const admin = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     const adminOneId = admin?.oneid || 'ADMIN-SYSTEM';
 
     const ledgerRecord = await appendLedgerRecord('VEHICLE', {
@@ -618,7 +609,7 @@ export const recordViolation = async (req, res, next) => {
     }
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'TRAFFIC_VIOLATION_LOGGED',
       `Fined license ${dl.licenseNumber} under ticket ID ${violation.id}. Suspended state triggered: ${licenseStatusUpdated}`,
       req.ip
@@ -643,6 +634,11 @@ export const payRoadTax = async (req, res, next) => {
       return res.status(404).json({ error: 'Vehicle details could not be found.' });
     }
 
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    if (vehicle.currentOwnerOneId !== user.oneid) {
+      return res.status(403).json({ error: 'You do not own this vehicle.' });
+    }
+
     const roadTaxPaidAt = new Date();
     const roadTaxDueDate = new Date();
     roadTaxDueDate.setFullYear(roadTaxPaidAt.getFullYear() + 1);
@@ -663,7 +659,7 @@ export const payRoadTax = async (req, res, next) => {
     });
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'VEHICLE_ROAD_TAX_SETTLED',
       `Road tax settled for vehicle ${vehicle.registrationNo}. Next due: ${roadTaxDueDate.toDateString()}`,
       req.ip
@@ -680,7 +676,7 @@ export const payViolation = async (req, res, next) => {
   try {
     const { violationId } = req.body;
     if (!violationId) {
-      return res.status(400).json({ error: 'violationId is a required body parameter.' });
+      return res.status(400).json({ error: 'violationId is required.' });
     }
 
     const violation = await prisma.trafficViolation.findUnique({
@@ -689,6 +685,12 @@ export const payViolation = async (req, res, next) => {
     });
     if (!violation) {
       return res.status(404).json({ error: 'Violation ticket record not found.' });
+    }
+
+    const license = await prisma.drivingLicense.findUnique({ where: { id: violation.licenseId } });
+    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    if (license.citizenOneId !== user.oneid) {
+      return res.status(403).json({ error: 'This violation does not belong to your license.' });
     }
 
     if (violation.fineStatus === 'PAID') {
@@ -730,7 +732,7 @@ export const payViolation = async (req, res, next) => {
     }
 
     await logEvent(
-      req.user.userId,
+      parseInt(req.user.userId, 10),
       'VIOLATION_TICKET_PAID',
       `Paid fine BDT ${violation.fineAmount} for violation ${violationId}. License status restored: ${licenseRestored}`,
       req.ip
@@ -742,17 +744,14 @@ export const payViolation = async (req, res, next) => {
   }
 };
 
-// LIST DATA FOR ADMIN WORKSPACE OVERVIEWS
 export const getAdminOverviewList = async (req, res, next) => {
   try {
-    // 1. Fetch pending driving license applications
     const pendingLicenses = await prisma.drivingLicense.findMany({
       where: { status: 'PENDING' },
       include: { citizen: true },
-      orderBy: { expiryDate: 'asc' } // just a fallback sort
+      orderBy: { expiryDate: 'asc' }
     });
 
-    // 2. Fetch all traffic violations
     const violations = await prisma.trafficViolation.findMany({
       include: {
         license: { include: { citizen: true } },
@@ -761,14 +760,12 @@ export const getAdminOverviewList = async (req, res, next) => {
       orderBy: { issuedAt: 'desc' }
     });
 
-    // 3. Fetch pending transfers
     const pendingTransfers = await prisma.vehicleTransfer.findMany({
       where: { status: 'PENDING_ADMIN' },
       include: { vehicle: true },
       orderBy: { initiatedAt: 'desc' }
     });
 
-    // 4. Counts by license status
     const approvedLicensesCount = await prisma.drivingLicense.count({ where: { status: 'APPROVED' } });
     const pendingLicensesCount = await prisma.drivingLicense.count({ where: { status: 'PENDING' } });
     const suspendedLicensesCount = await prisma.drivingLicense.count({ where: { status: 'SUSPENDED' } });
@@ -790,19 +787,18 @@ export const getAdminOverviewList = async (req, res, next) => {
   }
 };
 
-// LOOKUP RECIPIENT BUYER BY ONEID FOR SECURITY HANDSHAKE
 export const lookupBuyer = async (req, res, next) => {
   try {
     const { toOwnerOneId } = req.params;
     if (!toOwnerOneId) {
-      return res.status(400).json({ error: 'toOwnerOneId parameter is required.' });
+      return res.status(400).json({ error: 'toOwnerOneId is required.' });
     }
 
     const buyerUser = await prisma.user.findUnique({
       where: { oneid: toOwnerOneId }
     });
     if (!buyerUser) {
-      return res.json({ found: false, error: 'No citizen discovered under this OneID code.' });
+      return res.json({ found: false, error: 'Citizen not found.' });
     }
 
     const buyerDl = await prisma.drivingLicense.findFirst({
@@ -812,7 +808,7 @@ export const lookupBuyer = async (req, res, next) => {
     const isLicenseApproved = buyerDl && buyerDl.status === 'APPROVED';
 
     const maskName = (name) => {
-      if (!name) return 'Sovereign Citizen';
+      if (!name) return 'Citizen';
       const parts = name.split(' ');
       return parts.map(p => p[0] + '*'.repeat(Math.max(1, p.length - 1))).join(' ');
     };

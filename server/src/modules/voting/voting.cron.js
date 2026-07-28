@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../../prisma.js';
 import { logEvent } from '../../core/audit.service.js';
-import { verifyChain } from '../../core/ledger.engine.js';
+import { verifyVoteChain } from '../../core/ledger.engine.js';
 import { createTransporter } from '../../shared/email.service.js';
 import {
   sendElectionOpenNotification,
@@ -38,13 +38,12 @@ async function getVoterEmailsForElection(election) {
  * @param {import('socket.io').Server} io - Socket.io live connection hub
  */
 export function startScheduler(io) {
-  console.log('⏰ [OneID Voting] Starting secure election status tracker...');
+  console.log('[cron] Election status tracker started');
   
   cron.schedule('* * * * *', async () => {
     try {
       const now = new Date();
 
-      // 1. Transition elections SCHEDULED -> ACTIVE
       const scheduledElections = await prisma.election.findMany({
         where: {
           status: 'SCHEDULED',
@@ -67,15 +66,13 @@ export function startScheduler(io) {
         }
         
         await logEvent(null, "ELECTION_OPENED", election.title, null, election.id);
-        console.log(`📡 Election "${election.title}" transitioned automatically to ACTIVE.`);
+        console.log(`[cron] Election "${election.title}" opened`);
 
-        // Dispatch emails asynchronously
         getVoterEmailsForElection(election)
           .then((emails) => sendElectionOpenNotification(election, emails))
-          .catch((err) => console.error(`❌ Error in open-polling notifier for ${election.title}:`, err));
+          .catch((err) => console.error(`[error] Email notifier failed for ${election.title}:`, err));
       }
 
-      // 2. Transition elections ACTIVE -> CLOSED
       const activeElections = await prisma.election.findMany({
         where: {
           status: 'ACTIVE',
@@ -98,19 +95,18 @@ export function startScheduler(io) {
         }
         
         await logEvent(null, "ELECTION_CLOSED", election.title, null, election.id);
-        console.log(`🔒 Election "${election.title}" transitioned automatically to CLOSED.`);
+        console.log(`[cron] Election "${election.title}" closed`);
 
-        // Dispatch emails asynchronously
         getVoterEmailsForElection(election)
           .then((emails) => sendElectionCloseNotification(election, emails))
-          .catch((err) => console.error(`❌ Error in close-polling notifier for ${election.title}:`, err));
+          .catch((err) => console.error(`[error] Email notifier failed for ${election.title}:`, err));
       }
     } catch (err) {
-      console.error('❌ Scheduler cycle encountered a security alignment error:', err);
+      console.error('[error] Election scheduler:', err);
     }
   });
 
-  // 24-Hour Reminder Cron (Assesses active pollings ending in roughly 24 hours every hour)
+  // 24-hour reminder (hourly)
   cron.schedule('0 * * * *', async () => {
     try {
       const now = new Date();
@@ -130,20 +126,16 @@ export function startScheduler(io) {
       for (const election of reminderElections) {
         const emails = await getVoterEmailsForElection(election);
         await sendElectionReminderNotification(election, emails);
-        console.log(`⏰ 24-hour reminder dispatched for election: "${election.title}" to ${emails.length} voters.`);
+        console.log(`[cron] 24h reminder sent for "${election.title}" to ${emails.length} voters`);
       }
     } catch (err) {
-      console.error('❌ 24-hour reminder scheduler exception:', err);
+      console.error('[error] Reminder scheduler:', err);
     }
   });
 }
 
-/**
- * Smart Auto Audit System — Automatically verifies blockchain chain integrity every hour.
- * Sends email alert to admin if tampering is detected.
- */
 export function startAuditVerifier(io) {
-  console.log('⏰ [OneID Voting] Starting secure Smart Auto Audit Verifier (every hour)...');
+  console.log('[cron] Vote chain audit started');
 
   cron.schedule('0 * * * *', async () => {
     await runAutoAudit(io);
@@ -162,7 +154,7 @@ export async function runAutoAudit(io) {
 
       if (votes.length === 0) continue;
 
-      const result = verifyChain(votes);
+      const result = verifyVoteChain(votes);
       const is_valid = result.valid;
       const brokenAt = result.brokenAt;
       const voteId = result.voteId;
@@ -201,7 +193,7 @@ export async function runAutoAudit(io) {
           </div>
         `;
 
-        console.log(`🚨 [ALERT TO ADMIN] Tamper detected in election: "${election.title}". Broken index: ${brokenAt}, Vote ID: ${voteId}`);
+        console.log(`[alert] Tamper in "${election.title}" at index ${brokenAt}`);
         if (transporter && adminEmail) {
           try {
             await transporter.sendMail({
@@ -227,6 +219,6 @@ export async function runAutoAudit(io) {
       }
     }
   } catch (error) {
-    console.error('❌ Automatic chain verifier failed:', error);
+    console.error('[error] Vote chain audit:', error);
   }
 }

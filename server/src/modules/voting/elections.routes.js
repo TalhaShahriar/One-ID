@@ -9,7 +9,7 @@ const router = Router();
  * POST /api/voting/elections
  * Admin only - Create and schedule a new election
  */
-router.post('/', authenticateJWT, authorizeRoles('ADMIN'), async (req, res, next) => {
+router.post('/', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), async (req, res, next) => {
   try {
     const { 
       title, 

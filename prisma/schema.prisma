@@ -130,9 +130,10 @@ model Election {
   created_by          Int
   created_at          DateTime       @default(now())
 
-  candidates     Candidate[]
-  votes          Vote[]
-  audit_logs     AuditLog[]
+  candidates      Candidate[]
+  votes           Vote[]
+  audit_logs      AuditLog[]
+  voter_elections VoterElection[]
 }
 
 model Party {
@@ -196,6 +197,7 @@ model VoterElection {
   voted_at    DateTime?
 
   user        User      @relation(fields: [voter_id], references: [id])
+  election    Election  @relation(fields: [election_id], references: [id])
 
   @@unique([voter_id, election_id])
 }
