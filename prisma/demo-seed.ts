@@ -15,7 +15,7 @@ async function main() {
   console.log('🚀 Initiating VoteChain BD Exact Presentation Demo Seeder...');
 
   const pwd1234 = await bcrypt.hash('Test@1234', 10);
-  const pwd123 = await bcrypt.hash('Test@123', 10);
+  const pwd123 = await bcrypt.hash('Test@1234', 10);
 
   // 1. Resolve Admins or seed if not exists
   const adminAccounts = [
