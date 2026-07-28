@@ -13,7 +13,14 @@ import {
   getAdminProceedings,
   registerBirth,
   registerDeath,
-  applyMarriage
+  getMyBirthRecords,
+  getMyDeathRecords,
+  getBirthCertificate,
+  getDeathCertificate,
+  applyMarriage,
+  getMarriageApplications,
+  approveMarriageApplication,
+  rejectMarriageApplication
 } from './civil.controller.js';
 
 const router = Router();
@@ -22,7 +29,7 @@ router.get('/summary', authenticateJWT, (req, res) => {
   res.json({
     module: 'civil-registry',
     status: 'active',
-    features: ['Sovereign Dual-Signed Nikah Naama', '90-Day Talaq Wait State-Machine', 'Bigamy Prevention'],
+    features: ['Sovereign Dual-Signed Nikah Naama', 'Birth Certificate Generation', 'Death Certificate Generation', '90-Day Talaq Wait State-Machine', 'Bigamy Prevention'],
     citizenId: req.user.oneid || 'N/A'
   });
 });
@@ -39,8 +46,17 @@ router.get('/admin/proceedings', authenticateJWT, getAdminProceedings);
 router.get('/public/verify/:elementId', verifyCertificate);
 
 router.post('/birth', authenticateJWT, registerBirth);
+router.get('/birth', authenticateJWT, getMyBirthRecords);
+router.get('/birth/:id', authenticateJWT, getBirthCertificate);
+
 router.post('/death', authenticateJWT, registerDeath);
+router.get('/death', authenticateJWT, getMyDeathRecords);
+router.get('/death/:id', authenticateJWT, getDeathCertificate);
 
 router.post('/marriage/apply', authenticateJWT, applyMarriage);
+router.get('/marriage/applications', authenticateJWT, getMarriageApplications);
+router.post('/marriage/applications/:id/approve', authenticateJWT, approveMarriageApplication);
+router.delete('/marriage/applications/:id/reject', authenticateJWT, rejectMarriageApplication);
+
 export default router;
 

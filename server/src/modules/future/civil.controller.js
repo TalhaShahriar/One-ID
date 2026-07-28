@@ -522,7 +522,53 @@ export const verifyCertificate = async (req, res, next) => {
     }
 
     if (!marriage) {
-      return res.status(404).json({ error: 'No matching marriages or finalized divorces detected on active public ledger channels.' });
+      // Search BirthRecord
+      const birth = await prisma.birthRecord.findFirst({
+        where: {
+          OR: [
+            { id: elementId.trim() },
+            { ledgerRecordId: elementId.trim() }
+          ]
+        }
+      });
+      if (birth) {
+        return res.json({
+          recordFound: true,
+          type: 'BIRTH_CERTIFICATE',
+          id: birth.id,
+          childName: birth.childName,
+          dateOfBirth: birth.dateOfBirth,
+          placeOfBirth: birth.placeOfBirth,
+          fatherOneId: birth.fatherOneId ? maskOneId(birth.fatherOneId) : 'N/A',
+          motherOneId: birth.motherOneId ? maskOneId(birth.motherOneId) : 'N/A',
+          ledgerRecordId: birth.ledgerRecordId,
+          createdAt: birth.createdAt
+        });
+      }
+
+      // Search DeathRecord
+      const death = await prisma.deathRecord.findFirst({
+        where: {
+          OR: [
+            { id: elementId.trim() },
+            { ledgerRecordId: elementId.trim() }
+          ]
+        }
+      });
+      if (death) {
+        return res.json({
+          recordFound: true,
+          type: 'DEATH_CERTIFICATE',
+          id: death.id,
+          deceasedOneId: maskOneId(death.deceasedOneId),
+          dateOfDeath: death.dateOfDeath,
+          causeOfDeath: death.causeOfDeath,
+          ledgerRecordId: death.ledgerRecordId,
+          createdAt: death.createdAt
+        });
+      }
+
+      return res.status(404).json({ error: 'No matching marriages, divorces, birth records, or death records detected on active public ledger channels.' });
     }
 
     res.json({
@@ -577,54 +623,297 @@ export const getAdminProceedings = async (req, res, next) => {
 export const registerBirth = async (req, res, next) => {
   try {
     const { childName, dateOfBirth, placeOfBirth, fatherOneId, motherOneId } = req.body;
-    if (req.user.role !== 'CIVIL_REGISTRY_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ error: 'Access denied. Civil Registry Admin required.' });
+    if (!childName || !dateOfBirth || !placeOfBirth) {
+      return res.status(400).json({ error: 'Child Name, Date of Birth, and Place of Birth are required.' });
     }
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const userOneId = user?.oneid || null;
+
     const record = await prisma.birthRecord.create({
-      data: { childName, dateOfBirth: new Date(dateOfBirth), placeOfBirth, fatherOneId, motherOneId }
+      data: {
+        childName,
+        dateOfBirth: new Date(dateOfBirth),
+        placeOfBirth,
+        fatherOneId: fatherOneId || userOneId,
+        motherOneId: motherOneId || null
+      }
     });
+
     const ledgerRecord = await appendLedgerRecord('CIVIL_REGISTRY', {
       eventType: 'BIRTH_REGISTERED',
       recordId: record.id,
-      childName
+      childName,
+      dateOfBirth,
+      placeOfBirth
     }, prisma);
+
     await prisma.birthRecord.update({ where: { id: record.id }, data: { ledgerRecordId: ledgerRecord.id } });
-    res.json({ success: true, record, certificateUrl: `/api/civil/birth/certificate/${record.id}` });
+
+    res.json({ success: true, record: { ...record, ledgerRecordId: ledgerRecord.id }, certificateUrl: `/api/civil-registry/birth/${record.id}` });
   } catch (err) { next(err); }
 };
 
 export const registerDeath = async (req, res, next) => {
   try {
     const { deceasedOneId, dateOfDeath, causeOfDeath } = req.body;
-    if (req.user.role !== 'CIVIL_REGISTRY_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ error: 'Access denied. Civil Registry Admin required.' });
+    if (!deceasedOneId || !dateOfDeath) {
+      return res.status(400).json({ error: 'Deceased OneID and Date of Death are required.' });
     }
+
     const record = await prisma.deathRecord.create({
-      data: { deceasedOneId, dateOfDeath: new Date(dateOfDeath), causeOfDeath }
+      data: {
+        deceasedOneId,
+        dateOfDeath: new Date(dateOfDeath),
+        causeOfDeath: causeOfDeath || 'Natural Causes'
+      }
     });
+
     const ledgerRecord = await appendLedgerRecord('CIVIL_REGISTRY', {
       eventType: 'DEATH_REGISTERED',
       recordId: record.id,
-      deceasedOneId
+      deceasedOneId,
+      dateOfDeath
     }, prisma);
+
     await prisma.deathRecord.update({ where: { id: record.id }, data: { ledgerRecordId: ledgerRecord.id } });
-    res.json({ success: true, record, certificateUrl: `/api/civil/death/certificate/${record.id}` });
+
+    res.json({ success: true, record: { ...record, ledgerRecordId: ledgerRecord.id }, certificateUrl: `/api/civil-registry/death/${record.id}` });
+  } catch (err) { next(err); }
+};
+
+export const getMyBirthRecords = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const oneid = user?.oneid;
+
+    let records;
+    if (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN' || req.user.role === 'CIVIL_REGISTRY_ADMIN') {
+      records = await prisma.birthRecord.findMany({ orderBy: { createdAt: 'desc' }, take: 50 });
+    } else if (oneid) {
+      records = await prisma.birthRecord.findMany({
+        where: {
+          OR: [
+            { fatherOneId: oneid },
+            { motherOneId: oneid }
+          ]
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      records = await prisma.birthRecord.findMany({ orderBy: { createdAt: 'desc' }, take: 20 });
+    }
+
+    res.json({ success: true, records });
+  } catch (err) { next(err); }
+};
+
+export const getMyDeathRecords = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const oneid = user?.oneid;
+
+    let records;
+    if (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN' || req.user.role === 'CIVIL_REGISTRY_ADMIN') {
+      records = await prisma.deathRecord.findMany({ orderBy: { createdAt: 'desc' }, take: 50 });
+    } else if (oneid) {
+      records = await prisma.deathRecord.findMany({
+        where: { deceasedOneId: oneid },
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      records = await prisma.deathRecord.findMany({ orderBy: { createdAt: 'desc' }, take: 20 });
+    }
+
+    res.json({ success: true, records });
+  } catch (err) { next(err); }
+};
+
+export const getBirthCertificate = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const record = await prisma.birthRecord.findUnique({ where: { id } });
+    if (!record) return res.status(404).json({ error: 'Birth record not found.' });
+
+    res.json({ success: true, record });
+  } catch (err) { next(err); }
+};
+
+export const getDeathCertificate = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const record = await prisma.deathRecord.findUnique({ where: { id } });
+    if (!record) return res.status(404).json({ error: 'Death record not found.' });
+
+    res.json({ success: true, record });
   } catch (err) { next(err); }
 };
 
 export const applyMarriage = async (req, res, next) => {
   try {
-    const { partnerOneId } = req.body;
+    const { partnerOneId, witness1OneId, witness2OneId, mahrAmountBDT, mahrType, religion, roleType } = req.body;
     if (!partnerOneId) return res.status(400).json({ error: 'Partner OneID is required.' });
-    
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
-    if (!user || !user.oneid) return res.status(400).json({ error: 'Valid OneID required.' });
-    
-    if (user.maritalStatus === 'MARRIED') return res.status(403).json({ error: 'You are already married.' });
 
-    await logEvent(req.user.userId, 'MARRIAGE_APPLICATION_SUBMITTED', `Marriage application submitted with partner ${partnerOneId}`, req.ip);
+    const applicant = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!applicant || !applicant.oneid) return res.status(400).json({ error: 'Applicant profile lacks a valid OneID identity.' });
+
+    const pO = partnerOneId.trim().toUpperCase();
+    const partner = await prisma.user.findUnique({ where: { oneid: pO } });
+    if (!partner) return res.status(404).json({ error: `Partner OneID '${pO}' not found in civil records.` });
+
+    if (applicant.maritalStatus === 'MARRIED' || applicant.maritalStatus === 'DIVORCE_PENDING') {
+      return res.status(409).json({ error: `Cannot apply: Applicant has active marital status '${applicant.maritalStatus}'. Bigamy is prohibited.` });
+    }
+    if (partner.maritalStatus === 'MARRIED' || partner.maritalStatus === 'DIVORCE_PENDING') {
+      return res.status(409).json({ error: `Cannot apply: Partner has active marital status '${partner.maritalStatus}'. Bigamy is prohibited.` });
+    }
+
+    if (applicant.oneid === pO) {
+      return res.status(400).json({ error: 'Groom and Bride cannot possess identical OneIDs.' });
+    }
+
+    // Determine Groom & Bride IDs
+    let groomOneId, brideOneId;
+    if (roleType === 'BRIDE') {
+      brideOneId = applicant.oneid;
+      groomOneId = pO;
+    } else {
+      groomOneId = applicant.oneid;
+      brideOneId = pO;
+    }
+
+    const year = new Date().getFullYear();
+    const randomSuffix = String(Math.floor(10000 + Math.random() * 90000));
+    const marriageId = `APP-${year}-${randomSuffix}`;
+
+    const application = await prisma.marriageRecord.create({
+      data: {
+        marriageId,
+        groomOneId,
+        brideOneId,
+        witness1OneId: witness1OneId ? witness1OneId.trim().toUpperCase() : null,
+        witness2OneId: witness2OneId ? witness2OneId.trim().toUpperCase() : null,
+        mahrAmountBDT: mahrAmountBDT ? parseFloat(mahrAmountBDT) : null,
+        mahrType: mahrType || 'PROMPT',
+        religion: religion || applicant.religion || 'ISLAM',
+        status: 'PENDING_APPROVAL'
+      }
+    });
+
+    await logEvent(req.user.userId, 'MARRIAGE_APPLICATION_SUBMITTED', `Wedding application ${marriageId} submitted for Groom: ${groomOneId} & Bride: ${brideOneId}`, req.ip);
+
+    const approver = (religion || applicant.religion) === 'ISLAM' ? 'Kazi (Licensed Registrar)' : 'Civil Registrar Office';
+    res.json({
+      success: true,
+      application,
+      message: `Wedding Application ${marriageId} submitted successfully! Awaiting approval & Kabinnama issuance by ${approver}.`
+    });
+  } catch (err) { next(err); }
+};
+
+export const getMarriageApplications = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
     
-    const approver = user.religion === 'ISLAM' ? 'Kazi' : 'Civil Registrar';
-    res.json({ success: true, message: `Marriage application submitted successfully to Civil Registry. Awaiting ${approver} approval.` });
+    let applications;
+    if (req.user.role === 'KAZI_ADMIN' || req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN' || req.user.role === 'CIVIL_REGISTRY_ADMIN') {
+      applications = await prisma.marriageRecord.findMany({
+        where: { status: 'PENDING_APPROVAL' },
+        orderBy: { registrationDate: 'desc' }
+      });
+    } else if (user?.oneid) {
+      applications = await prisma.marriageRecord.findMany({
+        where: {
+          OR: [
+            { groomOneId: user.oneid },
+            { brideOneId: user.oneid }
+          ]
+        },
+        orderBy: { registrationDate: 'desc' }
+      });
+    } else {
+      applications = [];
+    }
+
+    res.json({ success: true, applications });
+  } catch (err) { next(err); }
+};
+
+export const approveMarriageApplication = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (req.user.role !== 'KAZI_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'CIVIL_REGISTRY_ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Licensed Kazi / Civil Registrar credentials required.' });
+    }
+
+    const application = await prisma.marriageRecord.findUnique({ where: { id } });
+    if (!application) {
+      return res.status(404).json({ error: 'Marriage application not found.' });
+    }
+
+    if (application.status !== 'PENDING_APPROVAL') {
+      return res.status(400).json({ error: `Application is already in state '${application.status}'.` });
+    }
+
+    const year = new Date().getFullYear();
+    const randomSuffix = String(Math.floor(10000 + Math.random() * 90000));
+    const officialMarriageId = application.religion === 'ISLAM' ? `NIKAH-${year}-${randomSuffix}` : `CIVIL-${year}-${randomSuffix}`;
+    const nikahnaamaHash = sha256(application.groomOneId + application.brideOneId + String(application.mahrAmountBDT || 0) + new Date().toISOString() + (req.user.oneid || 'KAZI_ADMIN'));
+
+    const ledgerRecord = await appendLedgerRecord('CIVIL_REGISTRY', {
+      eventType: 'MARRIAGE_REGISTERED',
+      marriageId: officialMarriageId,
+      groomOneId: application.groomOneId,
+      brideOneId: application.brideOneId,
+      religion: application.religion,
+      nikahnaamaHash
+    }, prisma);
+
+    const updatedMarriage = await prisma.marriageRecord.update({
+      where: { id },
+      data: {
+        marriageId: officialMarriageId,
+        kaziOneId: req.user.oneid || 'KAZI-DHAKA-01',
+        nikahnaamaHash,
+        status: 'ACTIVE',
+        registrationDate: new Date(),
+        ledgerRecordId: ledgerRecord.id
+      }
+    });
+
+    await prisma.user.update({ where: { oneid: application.groomOneId }, data: { maritalStatus: 'MARRIED' } });
+    await prisma.user.update({ where: { oneid: application.brideOneId }, data: { maritalStatus: 'MARRIED' } });
+
+    await logEvent(req.user.userId, 'KAZI_MARRIAGE_APPROVED', `Kazi approved wedding application. Issued Kabinnama ${officialMarriageId}`, req.ip);
+
+    const groom = await prisma.user.findUnique({ where: { oneid: application.groomOneId } });
+    const bride = await prisma.user.findUnique({ where: { oneid: application.brideOneId } });
+
+    if (groom?.email) notifyUser(groom.email, "Kabinnama / Nikah Certificate Issued", `Your marriage application has been approved by Kazi. Official Nikah ID: <b>${officialMarriageId}</b>.`);
+    if (bride?.email) notifyUser(bride.email, "Kabinnama / Nikah Certificate Issued", `Your marriage application has been approved by Kazi. Official Nikah ID: <b>${officialMarriageId}</b>.`);
+
+    res.json({
+      success: true,
+      marriage: updatedMarriage,
+      message: `Wedding application approved! Digital Kabinnama / Nikahnama generated with ID ${officialMarriageId}`
+    });
+  } catch (err) { next(err); }
+};
+
+export const rejectMarriageApplication = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (req.user.role !== 'KAZI_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'CIVIL_REGISTRY_ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Licensed Kazi / Civil Registrar credentials required.' });
+    }
+
+    const application = await prisma.marriageRecord.findUnique({ where: { id } });
+    if (!application) return res.status(404).json({ error: 'Application not found.' });
+
+    await prisma.marriageRecord.delete({ where: { id } });
+
+    await logEvent(req.user.userId, 'KAZI_MARRIAGE_REJECTED', `Kazi rejected marriage application ${id}`, req.ip);
+
+    res.json({ success: true, message: 'Marriage application rejected and removed from registry queue.' });
   } catch (err) { next(err); }
 };

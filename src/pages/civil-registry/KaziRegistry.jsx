@@ -17,6 +17,12 @@ import api from '../../lib/api.js';
 import { toast } from 'sonner';
 
 export default function KaziRegistry() {
+  const [activeSubTab, setActiveSubTab] = useState('applications'); // 'applications', 'direct'
+  const [applications, setApplications] = useState([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+  const [approvingId, setApprovingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
+
   const [groomOneId, setGroomOneId] = useState('');
   const [brideOneId, setBrideOneId] = useState('');
   const [witness1OneId, setWitness1OneId] = useState('');
@@ -35,6 +41,60 @@ export default function KaziRegistry() {
 
   const [registeringModel, setRegisteringModel] = useState(false);
   const [registrationReceipt, setRegistrationReceipt] = useState(null);
+
+  const fetchApplications = async () => {
+    setLoadingApps(true);
+    try {
+      const res = await api.get('/civil-registry/marriage/applications');
+      if (res.data?.applications) {
+        setApplications(res.data.applications);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load pending marriage applications.');
+    } finally {
+      setLoadingApps(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchApplications();
+  }, []);
+
+  const handleApproveApp = async (id) => {
+    setApprovingId(id);
+    try {
+      const res = await api.post(`/civil-registry/marriage/applications/${id}/approve`);
+      toast.success(res.data?.message || 'Wedding application approved successfully!');
+      if (res.data?.marriage) {
+        setRegistrationReceipt({
+          marriageId: res.data.marriage.marriageId,
+          marriage: res.data.marriage
+        });
+      }
+      fetchApplications();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Failed to approve wedding application.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectApp = async (id) => {
+    if (!window.confirm('Are you sure you want to decline this marriage application?')) return;
+    setRejectingId(id);
+    try {
+      await api.delete(`/civil-registry/marriage/applications/${id}/reject`);
+      toast.success('Marriage application rejected.');
+      fetchApplications();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Failed to reject application.');
+    } finally {
+      setRejectingId(null);
+    }
+  };
 
   const checkOneID = async (key, value) => {
     if (!value.trim()) {
@@ -152,6 +212,38 @@ export default function KaziRegistry() {
         </div>
       </div>
 
+      {/* Subtab Navigation: Applications Queue vs Direct Registration */}
+      <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+        <button
+          onClick={() => setActiveSubTab('applications')}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === 'applications'
+              ? 'bg-[#006a4e] text-white shadow-md'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <FileCheck2 className="w-4 h-4" />
+          Pending Wedding Applications
+          {applications.length > 0 && (
+            <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black">
+              {applications.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('direct')}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === 'direct'
+              ? 'bg-[#006a4e] text-white shadow-md'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <Heart className="w-4 h-4" />
+          Direct Counter Solemnization
+        </button>
+      </div>
+
       {registrationReceipt ? (
         /* Success Receipt Page */
         <motion.div
@@ -204,8 +296,121 @@ export default function KaziRegistry() {
             </button>
           </div>
         </motion.div>
+      ) : activeSubTab === 'applications' ? (
+        /* Applications Queue */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+              <FileCheck2 className="h-5 w-5 text-[#006a4e]" />
+              Pending Marriage Applications ({applications.length})
+            </h2>
+            <button
+              onClick={fetchApplications}
+              disabled={loadingApps}
+              className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-lg cursor-pointer"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingApps ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
+
+          {loadingApps ? (
+            <div className="bg-white p-12 text-center rounded-2xl border border-slate-200">
+              <RefreshCw className="h-6 w-6 text-[#006a4e] animate-spin mx-auto mb-2" />
+              <p className="text-xs text-slate-500 font-bold">Fetching pending wedding applications...</p>
+            </div>
+          ) : applications.length === 0 ? (
+            <div className="bg-white p-12 text-center rounded-2xl border border-slate-200 space-y-3">
+              <Heart className="h-10 w-10 text-slate-300 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-800 uppercase">No Pending Wedding Applications</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                No bride or groom applications currently pending review. New applications submitted by citizens will appear here for Kazi approval.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {applications.map((app) => (
+                <motion.div
+                  key={app.id}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-emerald-300 transition space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-amber-100 text-amber-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-amber-200">
+                        {app.status}
+                      </span>
+                      <span className="font-mono text-xs font-black text-slate-900">
+                        App ID: {app.marriageId}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Applied: {new Date(app.registrationDate).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-medium">
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Groom (বর)</span>
+                      <span className="font-mono font-bold text-slate-800 block text-sm">{app.groomOneId}</span>
+                    </div>
+
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Bride (কনে)</span>
+                      <span className="font-mono font-bold text-slate-800 block text-sm">{app.brideOneId}</span>
+                    </div>
+
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Mahr / Dower Fee</span>
+                      <span className="font-mono font-black text-[#006a4e] block text-sm">
+                        ৳ {app.mahrAmountBDT ? app.mahrAmountBDT.toLocaleString() : 'N/A'} ({app.mahrType || 'PROMPT'})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-slate-600 bg-slate-50/50 p-3 rounded-xl">
+                    <div>
+                      <span className="font-bold text-slate-500 uppercase block text-[10px]">Witness 1 OneID:</span>
+                      <span className="font-mono font-bold">{app.witness1OneId || 'Not provided'}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-500 uppercase block text-[10px]">Witness 2 OneID:</span>
+                      <span className="font-mono font-bold">{app.witness2OneId || 'Not provided'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
+                    <button
+                      onClick={() => handleRejectApp(app.id)}
+                      disabled={rejectingId === app.id || approvingId === app.id}
+                      className="text-xs font-bold text-red-600 hover:bg-red-50 border border-red-200 px-4 py-2 rounded-xl transition cursor-pointer"
+                    >
+                      {rejectingId === app.id ? 'Declining...' : 'Decline Application'}
+                    </button>
+
+                    <button
+                      onClick={() => handleApproveApp(app.id)}
+                      disabled={approvingId === app.id || rejectingId === app.id}
+                      className="bg-[#006a4e] hover:bg-[#004e38] text-white text-xs font-black uppercase px-6 py-2 rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {approvingId === app.id ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Solemnizing & Sealing...
+                        </>
+                      ) : (
+                        <>
+                          <FileCheck2 className="h-4 w-4 text-yellow-300" /> Approve & Issue Kabinnama
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
-        /* Marriage registration form */
+        /* Direct Marriage registration form */
         <form onSubmit={handleRegisterMarriage} className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
           
           <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">

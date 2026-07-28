@@ -520,6 +520,7 @@ enum MahrType {
 }
 
 enum MarriageStatus { 
+  PENDING_APPROVAL
   ACTIVE 
   DIVORCE_PENDING 
   DISSOLVED 

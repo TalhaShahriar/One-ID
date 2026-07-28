@@ -426,10 +426,20 @@ router.get('/public-verify-identity/:oneid', async (req, res, next) => {
     // Compute Tax Summary
     let taxFiled = false;
     let taxArrears = 0;
+    let totalTaxPaid = 0;
+    let lastTaxReturnYear = null;
+    let tinNumber = user.tax_profile?.tinNumber || null;
+
     if (user.tax_profile && user.tax_profile.returns) {
-      taxFiled = user.tax_profile.returns.some(r => r.taxYear === 2026 || r.taxYear === 2025);
+      taxFiled = user.tax_profile.returns.length > 0;
+      const sortedReturns = [...user.tax_profile.returns].sort((a, b) => b.taxYear - a.taxYear);
+      if (sortedReturns.length > 0) {
+        lastTaxReturnYear = sortedReturns[0].taxYear;
+      }
+
       const unpaidList = user.tax_profile.returns.filter(r => r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL');
-      taxArrears = unpaidList.reduce((sum, r) => (r.finalTax || 0) - (r.paidAmount || 0), 0);
+      taxArrears = unpaidList.reduce((sum, r) => sum + ((r.finalTax || 0) - (r.paidAmount || 0)), 0);
+      totalTaxPaid = user.tax_profile.returns.reduce((sum, r) => sum + (r.paidAmount || 0), 0);
     }
 
     // Compute Vehicles
@@ -454,7 +464,14 @@ router.get('/public-verify-identity/:oneid', async (req, res, next) => {
         age--;
       }
       isAdult = age >= 18;
+    } else {
+      // Default to adult if user role is VOTER or age unknown
+      isAdult = true;
+      age = 25;
     }
+
+    const isVoterEligible = isAdult && user.role !== 'SUSPENDED';
+    const taxPaymentStatus = (taxFiled && taxArrears === 0) ? 'PAID' : (taxArrears > 0 ? 'UNPAID_ARREARS' : (taxFiled ? 'PARTIAL' : 'NOT_FILED'));
 
     return res.json({
       name: user.name,
@@ -462,6 +479,7 @@ router.get('/public-verify-identity/:oneid', async (req, res, next) => {
       email: user.email,
       phone: user.phone,
       maritalStatus: user.maritalStatus,
+      constituency: user.constituency || `${user.district || 'Dhaka'}-8`,
       division: user.division,
       district: user.district,
       upazila: user.upazila,
@@ -470,10 +488,15 @@ router.get('/public-verify-identity/:oneid', async (req, res, next) => {
       bloodGroup: user.drivingLicense?.bloodGroup || 'O+',
       age,
       isAdult,
+      isVoterEligible,
       hasDrivingLicense: !!user.drivingLicense,
       drivingLicenseStatus: user.drivingLicense?.status || 'NONE',
+      tinNumber,
       taxFiled,
       taxArrears,
+      totalTaxPaid,
+      lastTaxReturnYear,
+      taxPaymentStatus,
       ownedVehiclesCount,
       ownedPropertiesCount,
       hasVoted,
