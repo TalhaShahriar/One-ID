@@ -22,6 +22,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import api from '../lib/api.js';
+import { useSocket } from '../hooks/useSocket.js';
+import LiveBDClock from '../shared/components/LiveBDClock.jsx';
 
 const SECTOR_METADATA = {
   VOTE: {
@@ -68,6 +70,7 @@ const SECTOR_METADATA = {
 
 export default function BlockchainVisualizer() {
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const [ledgerStats, setLedgerStats] = useState(null);
   const [ledgerRecords, setLedgerRecords] = useState([]);
   const [selectedSector, setSelectedSector] = useState('ALL');
@@ -128,6 +131,28 @@ export default function BlockchainVisualizer() {
 
     return () => clearInterval(interval);
   }, [selectedSector]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewBlock = (data) => {
+      fetchLedgerStats();
+      api.get(`/ledger/public-records?limit=60${selectedSector !== 'ALL' ? `&sector=${selectedSector}` : ''}`)
+        .then(res => {
+          setLedgerRecords(res.data?.records || []);
+        })
+        .catch(err => console.error('Socket refresh failed:', err));
+      toast.info(`⚡ Real-time ledger block appended! (${data?.sector || 'Live Sector'})`, { id: 'live-block-toast' });
+    };
+
+    socket.on('ledger:new_block', handleNewBlock);
+    socket.on('vote:cast', handleNewBlock);
+
+    return () => {
+      socket.off('ledger:new_block', handleNewBlock);
+      socket.off('vote:cast', handleNewBlock);
+    };
+  }, [socket, selectedSector]);
 
   // Run a step-by-step audit animation in the UI!
   const runVisualAudit = async (sector) => {
@@ -257,7 +282,8 @@ export default function BlockchainVisualizer() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <LiveBDClock variant="badge" />
             <button
               onClick={() => {
                 fetchLedgerStats();

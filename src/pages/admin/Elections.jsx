@@ -12,10 +12,39 @@ import {
   X, 
   TrendingUp, 
   ChevronRight,
-  Info
+  Info,
+  Edit3
 } from 'lucide-react';
 import api from '../../lib/api.js';
 import { toast } from 'sonner';
+
+// Bangladesh Standard Time is UTC+6.
+// datetime-local inputs return strings like "2026-07-29T11:25" with NO timezone.
+// We must explicitly attach the BD offset so the server stores the correct UTC time.
+
+/** Convert a datetime-local input value ("YYYY-MM-DDTHH:mm") → ISO 8601 with +06:00 offset */
+const bdLocalToISO = (dtLocalStr) => {
+  if (!dtLocalStr) return '';
+  return `${dtLocalStr}:00+06:00`;
+};
+
+/** Convert a stored UTC ISO string → datetime-local input value in Bangladesh local time */
+const isoToBDLocal = (isoStr) => {
+  if (!isoStr) return '';
+  // Create date from ISO, then format in Asia/Dhaka timezone
+  const d = new Date(isoStr);
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  // sv-SE locale gives YYYY-MM-DD HH:mm format; replace space with T for datetime-local
+  return formatter.format(d).replace(' ', 'T');
+};
 
 /**
  * Admin Elections Dashboard Page.
@@ -28,7 +57,11 @@ export default function AdminElections() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Form states
+  // Edit modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingElection, setEditingElection] = useState(null);
+
+  // Create Form states
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [electionType, setElectionType] = useState('NATIONAL');
@@ -36,6 +69,16 @@ export default function AdminElections() {
   const [constituencyScope, setConstituencyScope] = useState('');
   const [startAt, setStartAt] = useState('');
   const [endAt, setEndAt] = useState('');
+
+  // Edit Form states
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editElectionType, setEditElectionType] = useState('NATIONAL');
+  const [editAdministrativeUnit, setEditAdministrativeUnit] = useState('');
+  const [editConstituencyScope, setEditConstituencyScope] = useState('');
+  const [editStartAt, setEditStartAt] = useState('');
+  const [editEndAt, setEditEndAt] = useState('');
+
   const [submitting, setSubmitting] = useState(false);
 
   // Load elections init
@@ -92,8 +135,8 @@ export default function AdminElections() {
         election_type: electionType,
         administrative_unit: administrativeUnit,
         constituency_scope: constituencyScope,
-        start_at: startAt,
-        end_at: endAt
+        start_at: bdLocalToISO(startAt),
+        end_at: bdLocalToISO(endAt)
       });
       toast.success('Election successfully scheduled on the node ledger!');
       setIsModalOpen(false);
@@ -108,6 +151,50 @@ export default function AdminElections() {
     } catch (err) {
       console.error(err);
       const msg = err.response?.data?.error || 'Registration failed.';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditModal = (el, e) => {
+    e.stopPropagation();
+    setEditingElection(el);
+    setEditTitle(el.title || '');
+    setEditDescription(el.description || '');
+    setEditElectionType(el.election_type || 'NATIONAL');
+    setEditAdministrativeUnit(el.administrative_unit || '');
+    setEditConstituencyScope(el.constituency_scope || '');
+    setEditStartAt(el.start_at ? isoToBDLocal(el.start_at) : '');
+    setEditEndAt(el.end_at ? isoToBDLocal(el.end_at) : '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateElection = async (e) => {
+    e.preventDefault();
+    if (!editTitle || !editDescription || !editAdministrativeUnit || !editConstituencyScope || !editStartAt || !editEndAt) {
+      toast.error('Please input all core parameters before updating.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await api.patch(`/elections/${editingElection.id}`, {
+        title: editTitle,
+        description: editDescription,
+        election_type: editElectionType,
+        administrative_unit: editAdministrativeUnit,
+        constituency_scope: editConstituencyScope,
+        start_at: bdLocalToISO(editStartAt),
+        end_at: bdLocalToISO(editEndAt)
+      });
+      toast.success('Election parameters updated successfully!');
+      setIsEditModalOpen(false);
+      setEditingElection(null);
+      fetchElections();
+    } catch (err) {
+      console.error(err);
+      const msg = err.response?.data?.error || 'Update failed.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -193,10 +280,10 @@ export default function AdminElections() {
                   <td className="px-6 py-4">{getStatusBadge(el.status)}</td>
                   <td className="px-6 py-4">
                     <div className="text-xs text-slate-600 font-medium flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 inline text-slate-400" /> Start: {new Date(el.start_at).toLocaleString()}
+                      <Clock className="h-3.5 w-3.5 inline text-slate-400" /> Start: {new Date(el.start_at).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'short', timeStyle: 'short' })}
                     </div>
                     <div className="text-xs text-slate-400 font-medium mt-1 flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 inline text-slate-400" /> End: {new Date(el.end_at).toLocaleString()}
+                      <Clock className="h-3.5 w-3.5 inline text-slate-400" /> End: {new Date(el.end_at).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'short', timeStyle: 'short' })}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -210,7 +297,15 @@ export default function AdminElections() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <ChevronRight className="h-4 w-4 text-slate-400 inline" />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={(e) => openEditModal(el, e)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-[#006a4e] text-slate-600 hover:text-white transition-colors flex items-center gap-1 text-xs font-bold"
+                        title="Edit Election Parameters"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -339,6 +434,130 @@ export default function AdminElections() {
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2.5 rounded-lg font-bold transition shadow-sm"
                 >
                   {submitting ? 'Registering on Chain...' : 'Publish Scheduled Block'}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT ELECTION MODAL */}
+      {isEditModalOpen && editingElection && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 text-base">Edit Election Parameters (ID #{editingElection.id})</h3>
+              <button 
+                onClick={() => { setIsEditModalOpen(false); setEditingElection(null); }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleUpdateElection} className="p-6 space-y-4 overflow-y-auto">
+              
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5">Election Title</label>
+                <input 
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-white border border-slate-300 text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5">Description Summary</label>
+                <textarea 
+                  required
+                  rows={2}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full bg-white border border-slate-300 text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5">Election Type</label>
+                  <select
+                    value={editElectionType}
+                    onChange={(e) => setEditElectionType(e.target.value)}
+                    className="w-full bg-white border border-slate-300 text-sm px-3 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-slate-800"
+                  >
+                    <option value="NATIONAL">National Assembly</option>
+                    <option value="LOCAL">Local Municipal election</option>
+                    <option value="PRESIDENTIAL">Presidential ballot</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5">Constituency Scope</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editConstituencyScope}
+                    onChange={(e) => setEditConstituencyScope(e.target.value)}
+                    className="w-full bg-white border border-slate-300 text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5">Administrative Unit</label>
+                <input 
+                  type="text"
+                  required
+                  value={editAdministrativeUnit}
+                  onChange={(e) => setEditAdministrativeUnit(e.target.value)}
+                  className="w-full bg-white border border-slate-300 text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5">Start Time</label>
+                  <input 
+                    type="datetime-local"
+                    required
+                    value={editStartAt}
+                    onChange={(e) => setEditStartAt(e.target.value)}
+                    className="w-full bg-white border border-slate-300 text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5">End Time</label>
+                  <input 
+                    type="datetime-local"
+                    required
+                    value={editEndAt}
+                    onChange={(e) => setEditEndAt(e.target.value)}
+                    className="w-full bg-white border border-slate-300 text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => { setIsEditModalOpen(false); setEditingElection(null); }}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs py-2.5 rounded-lg font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2.5 rounded-lg font-bold transition shadow-sm disabled:opacity-50"
+                >
+                  {submitting ? 'Updating Node Record...' : 'Save Parameters'}
                 </button>
               </div>
 

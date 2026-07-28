@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext.jsx';
 import OneIDCard from '../components/OneIDCard.jsx';
 
 import api from '../../lib/api.js';
+import LiveBDClock from '../components/LiveBDClock.jsx';
 
 export default function CitizenLayout({ children }) {
   const { user, logout } = useAuth();
@@ -163,8 +164,12 @@ export default function CitizenLayout({ children }) {
           <h2 className="hidden lg:block text-base font-bold text-gray-800">{pageTitle}</h2>
         </div>
 
-        {/* Right side widgets: Notifications, Mini Card, Logout */}
-        <div className="flex items-center gap-4">
+        {/* Right side widgets: BD Live Time, Notifications, Mini Card, Logout */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          
+          <div className="hidden md:block">
+            <LiveBDClock variant="compact" />
+          </div>
           
           {/* Notifications Alerts bell */}
           <Link 

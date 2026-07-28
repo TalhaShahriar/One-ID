@@ -247,8 +247,8 @@ router.patch('/:id', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), as
       return res.status(404).json({ error: 'Election not found.' });
     }
 
-    if (electionCurrent.status !== 'SCHEDULED') {
-      return res.status(400).json({ error: 'Only scheduled elections can receive parameter changes.' });
+    if (electionCurrent.status === 'CLOSED' || electionCurrent.status === 'CANCELLED' || electionCurrent.status === 'RESULTS_PUBLISHED') {
+      return res.status(400).json({ error: 'Closed or published elections cannot receive parameter changes.' });
     }
 
     const { title, description, start_at, end_at, election_type, administrative_unit, constituency_scope } = req.body;

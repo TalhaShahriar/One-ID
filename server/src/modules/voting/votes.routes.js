@@ -3,7 +3,7 @@ import { prisma } from '../../prisma.js';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
 import { authenticateJWT, authorizeRoles } from '../../core/auth.middleware.js';
-import { computeVoteHash, verifyVoteChain } from '../../core/ledger.engine.js';
+import { computeVoteHash, verifyVoteChain, append as appendLedgerRecord } from '../../core/ledger.engine.js';
 import { logEvent } from '../../core/audit.service.js';
 import { runAllChecks } from '../../../services/anomalyEngine.js';
 import { extractFingerprint } from '../../utils/deviceFingerprint.js';
@@ -139,7 +139,15 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
         }
       });
 
-      return { vote, token, castAt };
+      const ledgerRecord = await appendLedgerRecord('VOTE', {
+        eventType: 'BALLOT_CAST',
+        electionId,
+        constituency: req.user.constituency || 'NATIONAL',
+        voteId: newVoteId,
+        integrityHash: voteHash
+      }, tx);
+
+      return { vote, token, castAt, ledgerRecordId: ledgerRecord.id };
     });
 
     const io = req.app.get('io');
@@ -151,6 +159,7 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
       };
       io.to("election:" + electionId).emit("vote:cast", socketPayload);
       io.to("election_" + electionId).emit("vote:cast", socketPayload);
+      io.emit("ledger:new_block", { sector: 'VOTE' });
 
       if (detectedAnomalies && detectedAnomalies.length > 0) {
         detectedAnomalies.forEach((flagData) => {

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { motion } from 'motion/react';
-import { Calendar, Vote, Clock, AlertCircle, ShieldCheck, ArrowRight, MapPin } from 'lucide-react';
+import { Calendar, Vote, Clock, AlertCircle, ShieldCheck, ArrowRight, MapPin, UserPlus } from 'lucide-react';
 import api from '../lib/api.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import LiveBDClock from '../shared/components/LiveBDClock.jsx';
 
 export default function Elections() {
   const { user } = useAuth();
@@ -82,6 +83,16 @@ export default function Elections() {
               {user?.constituency}
             </strong>
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <LiveBDClock variant="light-badge" />
+          <button
+            onClick={() => navigate('/candidate/apply')}
+            className="px-4 py-2.5 bg-[#006a4e] hover:bg-[#00523c] text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer border border-[#00523c]"
+          >
+            <UserPlus className="h-4 w-4" /> Apply as Candidate
+          </button>
         </div>
       </div>
 

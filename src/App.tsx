@@ -43,6 +43,7 @@ import AdminDashboard from './pages/admin/Dashboard.jsx';
 import AuditLogs from './pages/admin/AuditLogs.jsx';
 import BlockchainStatus from './pages/admin/BlockchainStatus.jsx';
 import BlockchainVisualizer from './pages/BlockchainVisualizer.jsx';
+import LiveBDClock from './shared/components/LiveBDClock.jsx';
 import VerifyIdentity from './pages/VerifyIdentity.jsx';
 import CandidateApply from './pages/candidate/Apply.jsx';
 import CandidateDashboard from './pages/candidate/Dashboard.jsx';
@@ -131,9 +132,12 @@ function AppNavbar() {
           </div>
         </Link>
 
-        {/* GLOBAL SEARCH */}
-        <div className="hidden md:flex flex-1 max-w-sm mx-4">
-          <GlobalSearch />
+        {/* GLOBAL SEARCH & LIVE BD TIME */}
+        <div className="hidden md:flex items-center gap-3 flex-1 max-w-lg mx-4">
+          <div className="flex-1 max-w-sm">
+            <GlobalSearch />
+          </div>
+          <LiveBDClock variant="compact" />
         </div>
 
         {/* MOBILE TOGGLE BUTTON */}
@@ -621,7 +625,7 @@ export default function App() {
               <Route 
                 path="/candidate/apply" 
                 element={
-                  <ProtectedRoute roles={['CANDIDATE']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE']}>
                     <CandidateApply />
                   </ProtectedRoute>
                 } 
