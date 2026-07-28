@@ -754,8 +754,18 @@ export const applyMarriage = async (req, res, next) => {
     const { partnerOneId, witness1OneId, witness2OneId, mahrAmountBDT, mahrType, religion, roleType } = req.body;
     if (!partnerOneId) return res.status(400).json({ error: 'Partner OneID is required.' });
 
-    const applicant = await prisma.user.findUnique({ where: { id: req.user.userId } });
-    if (!applicant || !applicant.oneid) return res.status(400).json({ error: 'Applicant profile lacks a valid OneID identity.' });
+    let applicant = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!applicant) {
+      return res.status(400).json({ error: 'Applicant not found.' });
+    }
+    if (!applicant.oneid) {
+      const { generateOneId } = await import('../../core/oneid.utils.js');
+      const generatedOneId = await generateOneId(prisma);
+      applicant = await prisma.user.update({
+        where: { id: applicant.id },
+        data: { oneid: generatedOneId }
+      });
+    }
 
     const pO = partnerOneId.trim().toUpperCase();
     const partner = await prisma.user.findUnique({ where: { oneid: pO } });

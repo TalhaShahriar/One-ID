@@ -35,9 +35,17 @@ export const applyForLicense = async (req, res, next) => {
       return res.status(400).json({ error: 'Category is required.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
-    if (!user || !user.oneid) {
-      return res.status(400).json({ error: 'Account not found or missing OneID.' });
+    let user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    if (!user) {
+      return res.status(400).json({ error: 'Account not found.' });
+    }
+    if (!user.oneid) {
+      const { generateOneId } = await import('../../core/oneid.utils.js');
+      const generatedOneId = await generateOneId(prisma);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { oneid: generatedOneId }
+      });
     }
 
     const existingDl = await prisma.drivingLicense.findFirst({
@@ -181,9 +189,17 @@ export const registerVehicle = async (req, res, next) => {
       return res.status(400).json({ error: 'All vehicle details are required.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
-    if (!user || !user.oneid) {
-      return res.status(400).json({ error: 'Account missing OneID.' });
+    let user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    if (!user) {
+      return res.status(400).json({ error: 'Account not found.' });
+    }
+    if (!user.oneid) {
+      const { generateOneId } = await import('../../core/oneid.utils.js');
+      const generatedOneId = await generateOneId(prisma);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { oneid: generatedOneId }
+      });
     }
 
     const dl = await prisma.drivingLicense.findFirst({

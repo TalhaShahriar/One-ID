@@ -7,12 +7,17 @@ import { logEvent } from '../../core/audit.service.js';
 
 export const registerTaxProfile = async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    let user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
     if (!user) {
       return res.status(404).json({ error: 'Account not found.' });
     }
     if (!user.oneid) {
-      return res.status(400).json({ error: 'Account missing OneID.' });
+      const { generateOneId } = await import('../../core/oneid.utils.js');
+      const generatedOneId = await generateOneId(prisma);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { oneid: generatedOneId }
+      });
     }
 
     const existing = await prisma.taxProfile.findUnique({
@@ -163,9 +168,17 @@ export const submitTaxReturn = async (req, res, next) => {
     const yearParsed = parseInt(taxYear);
     const incomeVal = parseFloat(grossIncome) || 0;
 
-    const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
-    if (!user || !user.oneid) {
-      return res.status(400).json({ error: 'Account not found or missing OneID.' });
+    let user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId, 10) } });
+    if (!user) {
+      return res.status(400).json({ error: 'Account not found.' });
+    }
+    if (!user.oneid) {
+      const { generateOneId } = await import('../../core/oneid.utils.js');
+      const generatedOneId = await generateOneId(prisma);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { oneid: generatedOneId }
+      });
     }
 
     const profile = await prisma.taxProfile.findUnique({
