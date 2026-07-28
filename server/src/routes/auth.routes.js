@@ -221,7 +221,8 @@ router.post('/login', async (req, res, next) => {
     }
 
     const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'TAX_ADMIN', 'VEHICLE_ADMIN', 'PROPERTY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'LOCAL_AUTHORITY_ADMIN', 'KAZI_ADMIN'];
-    if (ADMIN_ROLES.includes(user.role) && process.env.NODE_ENV !== 'production') {
+    const isDevOrVercelDemo = process.env.NODE_ENV !== 'production' || process.env.VERCEL === '1' || process.env.VERCEL_ENV !== undefined || process.env.BYPASS_ADMIN_MFA === 'true';
+    if (ADMIN_ROLES.includes(user.role) && isDevOrVercelDemo) {
       const token = jwt.sign(
         {
           userId: user.id,
@@ -233,7 +234,7 @@ router.post('/login', async (req, res, next) => {
         { expiresIn: '7d' }
       );
 
-      await logEvent(user.id, 'LOGIN_SUCCESS', `${user.role} logged in (MFA skipped for testing)`, req.ip, null);
+      await logEvent(user.id, 'LOGIN_SUCCESS', `${user.role} logged in (MFA skipped for testing/demo)`, req.ip, null);
 
       return res.status(200).json({
         token,

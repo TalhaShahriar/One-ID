@@ -97,8 +97,19 @@ export default function Login() {
       console.error('❌ Credentials authentication error:', err);
       
       const resData = err.response?.data;
-      const errMsg = resData?.error || (err.message === 'Network Error' ? 'Server connection error. Please try again.' : err.message) || 'Credential verification failed.';
-      toast.error(errMsg);
+      let errMsg = 'Credential verification failed.';
+      if (resData) {
+        if (typeof resData.error === 'string') {
+          errMsg = resData.error;
+        } else if (typeof resData.message === 'string') {
+          errMsg = resData.message;
+        } else if (typeof resData === 'string') {
+          errMsg = resData;
+        }
+      } else if (typeof err.message === 'string') {
+        errMsg = err.message === 'Network Error' ? 'Server connection error. Please try again.' : err.message;
+      }
+      toast.error(String(errMsg));
 
       // If the node email exists but is not verified, take them straight to VerifyOTP page!
       if (resData?.unverified) {
