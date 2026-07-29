@@ -58,8 +58,8 @@ const servePdf = async (req, res, next) => {
 router.post('/receipt/:receiptNumber/pdf', servePdf);
 router.get('/receipt/:receiptNumber/pdf', servePdf);
 
-// Admin Routes (TAX_ADMIN or SUPER_ADMIN)
-router.get('/admin/returns', authenticateJWT, authorizeRoles('TAX_ADMIN', 'SUPER_ADMIN'), getAllReturns);
-router.post('/admin/flag', authenticateJWT, authorizeRoles('TAX_ADMIN', 'SUPER_ADMIN'), flagAnomaly);
+// Admin Routes (TAX_ADMIN, ADMIN, or SUPER_ADMIN)
+router.get('/admin/returns', authenticateJWT, authorizeRoles('TAX_ADMIN', 'ADMIN', 'SUPER_ADMIN'), getAllReturns);
+router.post('/admin/flag', authenticateJWT, authorizeRoles('TAX_ADMIN', 'ADMIN', 'SUPER_ADMIN'), flagAnomaly);
 
 export default router;

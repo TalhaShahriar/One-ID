@@ -137,11 +137,13 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
           voter_id: parseInt(req.user.userId, 10),
           election_id: electionId,
           has_voted: true,
-          voted_at: castAt
+          voted_at: castAt,
+          receipt_token: token
         },
         update: {
           has_voted: true,
-          voted_at: castAt
+          voted_at: castAt,
+          receipt_token: token
         }
       });
 
@@ -265,18 +267,29 @@ router.get('/history', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), as
             id: true,
             title: true,
             status: true,
+            election_type: true,
+            constituency_scope: true,
+            start_at: true,
             end_at: true
           }
         }
+      },
+      orderBy: {
+        voted_at: 'desc'
       }
     });
 
     const formattedHistory = history.map((item) => ({
       election_id: item.election_id,
       voted_at: item.voted_at,
+      receipt_token: item.receipt_token || 'N/A',
       election: {
+        id: item.election.id,
         title: item.election.title,
         status: item.election.status,
+        election_type: item.election.election_type,
+        constituency_scope: item.election.constituency_scope,
+        start_at: item.election.start_at,
         end_at: item.election.end_at
       }
     }));
@@ -417,7 +430,8 @@ router.post('/seed-votes', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN
             voter_id: voter.id,
             election_id: electionId,
             has_voted: true,
-            voted_at: castAt
+            voted_at: castAt,
+            receipt_token: token
           }
         });
 

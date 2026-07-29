@@ -84,7 +84,8 @@ router.get('/', authenticateJWT, async (req, res, next) => {
   try {
     const role = req.user.role;
     
-    if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+    const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'TAX_ADMIN', 'VEHICLE_ADMIN', 'PROPERTY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'KAZI_ADMIN', 'LOCAL_AUTHORITY_ADMIN'];
+    if (adminRoles.includes(role)) {
       const elections = await prisma.election.findMany({
         include: {
           _count: {

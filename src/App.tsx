@@ -340,7 +340,7 @@ function AppNavbar() {
           )}
 
           {/* Kazi Admin hub */}
-          {(user.role === 'KAZI_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
+          {(user.role === 'KAZI_ADMIN' || user.role === 'CIVIL_REGISTRY_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
               <Link 
                 to="/civil-registry/kazi" 

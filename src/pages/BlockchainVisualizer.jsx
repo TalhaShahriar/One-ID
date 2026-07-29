@@ -211,26 +211,53 @@ export default function BlockchainVisualizer() {
     if (!p) return 'Empty ledger block payload.';
 
     switch (rec.sector) {
-      case 'PROPERTY':
-        if (p.action === 'TRANSFER') {
-          return `🏡 Land Mutation holding #${p.propertyId}: Transferred from NID ${p.sellerOneId?.substring(0, 8)}.. to ${p.buyerOneId?.substring(0, 8)}.. for ৳${p.price?.toLocaleString()} BDT.`;
+      case 'PROPERTY': {
+        const isTransfer = p.eventType === 'PROPERTY_MUTATION_TRANSFER' || p.eventType === 'OWNERSHIP_TRANSFERRED' || p.action === 'TRANSFER';
+        const seller = p.sellerOneId || p.fromOneId;
+        const buyer = p.buyerOneId || p.toOneId;
+        const price = p.price || p.agreedPriceBDT;
+        const owner = p.ownerOneId || p.ownerId;
+        if (isTransfer) {
+          return `🏡 Land Mutation holding #${p.propertyId}: Transferred from NID ${seller?.substring(0, 8)}.. to ${buyer?.substring(0, 8)}.. for ৳${price?.toLocaleString()} BDT.`;
         }
-        return `🏡 Property Registered: Lot #${p.propertyId} added under owner NID ${p.ownerOneId?.substring(0, 8)}...`;
-      case 'TAX':
-        return `৳ eVat Filing: TIN ${p.tin} filed Tax Year ${p.taxYear} with calculated VAT amount ৳${p.calculatedTax?.toLocaleString()} BDT. Status: ${p.paymentStatus}.`;
-      case 'VEHICLE':
-        if (p.action === 'TRANSFER') {
-          return `🚗 Vehicle Title mutated: Registration ${p.registrationNo} ownership transferred to NID ${p.toOwnerOneId?.substring(0, 8)}..`;
+        return `🏡 Property Registered: Lot #${p.propertyId} added under owner NID ${owner?.substring(0, 8)}...`;
+      }
+      case 'TAX': {
+        const status = p.paymentStatus || 'SUBMITTED';
+        return `৳ eVat Filing: TIN ${p.tin} filed Tax Year ${p.taxYear} with calculated VAT amount ৳${p.calculatedTax?.toLocaleString()} BDT. Status: ${status}.`;
+      }
+      case 'VEHICLE': {
+        if (p.eventType === 'LICENSE_APPLICATION') {
+          return `🚗 Driver License Application received for citizen NID ${p.citizenOneId?.substring(0, 8)}...`;
         }
-        return `🚗 BRTA Registered: ${p.make} ${p.model} (${p.year}) mapped to owner NID ${p.currentOwnerOneId?.substring(0, 8)}..`;
-      case 'CIVIL_REGISTRY':
-        if (p.recordType === 'MARRIAGE') {
-          return `📜 Civil Marriage certified: Solemnized by Kazi ID ${p.kaziId} linking Groom OneID ${p.groomOneId?.substring(0, 8)}.. to Bride OneID ${p.brideOneId?.substring(0, 8)}..`;
+        if (p.eventType === 'LICENSE_ISSUED') {
+          return `🚗 Driver License Issued for citizen NID ${p.citizenOneId?.substring(0, 8)}...`;
         }
-        if (p.recordType === 'ARBITRATION') {
-          return `⚖️ UP arbitration case #${p.arbitrationId} registered. Arbitrator status: ${p.status}.`;
+        if (p.eventType === 'VEHICLE_TRANSFERRED' || p.action === 'TRANSFER') {
+          const fromOwner = p.fromOwnerOneId;
+          const toOwner = p.toOwnerOneId;
+          return `🚗 Vehicle Title mutated: Registration ${p.registrationNo} ownership transferred from NID ${fromOwner?.substring(0, 8)}.. to NID ${toOwner?.substring(0, 8)}..`;
         }
-        return `📜 Civil event: ${p.recordType || 'REGISTRY'} registered on centralized OneID directory.`;
+        const vehicleOwner = p.ownerOneId || p.currentOwnerOneId;
+        return `🚗 BRTA Registered: ${p.make} ${p.model} (${p.year || 'N/A'}) mapped to owner NID ${vehicleOwner?.substring(0, 8)}..`;
+      }
+      case 'CIVIL_REGISTRY': {
+        const isMarriage = p.recordType === 'MARRIAGE' || p.eventType === 'MARRIAGE_REGISTERED' || p.eventType === 'CIVIL_MARRIAGE_REGISTERED';
+        const isArbitration = p.recordType === 'ARBITRATION' || p.eventType === 'ARBITRATION_COUNCIL_FORMED';
+        if (isMarriage) {
+          return `📜 Civil Marriage certified: Solemnized for Groom OneID ${p.groomOneId?.substring(0, 8)}.. to Bride OneID ${p.brideOneId?.substring(0, 8)}..`;
+        }
+        if (p.eventType === 'DIVORCE_NOTICE_FILED') {
+          return `💔 Divorce notice served for Marriage ID ${p.marriageId}. Initiating 90-day reconciliation council.`;
+        }
+        if (p.eventType === 'DIVORCE_FINALIZED') {
+          return `⚖️ Marital dissolution finalized. Marriage ID ${p.marriageId} status updated to DISSOLVED.`;
+        }
+        if (isArbitration) {
+          return `⚖️ UP arbitration case registered for proceeding ID ${p.divorceProceedingId?.substring(0, 8)}...`;
+        }
+        return `📜 Civil event: ${p.eventType || p.recordType || 'REGISTRY'} registered on centralized OneID directory.`;
+      }
       case 'VOTE':
         return `🗳️ Balloting slip casted: Anonymous receipt logged inside constituency ${p.constituency} in Election #${p.electionId}.`;
       default:

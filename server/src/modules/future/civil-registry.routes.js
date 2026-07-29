@@ -38,11 +38,11 @@ router.get('/verify-oneid/:oneid', authenticateJWT, verifyOneID);
 router.post('/marriage', authenticateJWT, registerMarriage);
 router.get('/my-marriage', authenticateJWT, getMyMarriageStatus);
 router.post('/divorce/notice', authenticateJWT, filingTalaqNotice);
-router.post('/divorce/arbitration/setup', authenticateJWT, formArbitrationCouncil);
-router.post('/divorce/arbitration/log', authenticateJWT, logReconciliationAttempt);
-router.post('/divorce/reconcile', authenticateJWT, reconcileMarriage);
-router.post('/divorce/finalize', authenticateJWT, finalizeDivorce);
-router.get('/admin/proceedings', authenticateJWT, authorizeRoles('KAZI_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), getAdminProceedings);
+router.post('/divorce/arbitration/setup', authenticateJWT, authorizeRoles('LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), formArbitrationCouncil);
+router.post('/divorce/arbitration/log', authenticateJWT, authorizeRoles('LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), logReconciliationAttempt);
+router.post('/divorce/reconcile', authenticateJWT, authorizeRoles('LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), reconcileMarriage);
+router.post('/divorce/finalize', authenticateJWT, authorizeRoles('LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), finalizeDivorce);
+router.get('/admin/proceedings', authenticateJWT, authorizeRoles('LOCAL_AUTHORITY_ADMIN', 'KAZI_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'), getAdminProceedings);
 router.get('/public/verify/:elementId', verifyCertificate);
 
 router.post('/birth', authenticateJWT, registerBirth);

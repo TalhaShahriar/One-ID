@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { motion } from 'motion/react';
-import { Calendar, Vote, Clock, AlertCircle, ShieldCheck, ArrowRight, MapPin, UserPlus } from 'lucide-react';
+import { Calendar, Vote, Clock, AlertCircle, ShieldCheck, ArrowRight, MapPin, UserPlus, History, Copy, Check, ExternalLink } from 'lucide-react';
 import api from '../lib/api.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import LiveBDClock from '../shared/components/LiveBDClock.jsx';
@@ -12,9 +12,11 @@ export default function Elections() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [elections, setElections] = useState([]);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tick, setTick] = useState(Date.now());
+  const [copiedToken, setCopiedToken] = useState(null);
 
   const fetchElections = async () => {
     try {
@@ -29,8 +31,18 @@ export default function Elections() {
     }
   };
 
+  const fetchHistory = async () => {
+    try {
+      const response = await api.get('/voting/votes/history');
+      setHistory(response.data);
+    } catch (err) {
+      console.error('Error fetching voting history:', err);
+    }
+  };
+
   useEffect(() => {
     fetchElections();
+    fetchHistory();
 
     // Setup live interval clock for countdown timers
     const timer = setInterval(() => {
@@ -46,6 +58,7 @@ export default function Elections() {
     socket.on('election:status_changed', (data) => {
       console.log('📡 Election state sync event received:', data);
       fetchElections();
+      fetchHistory();
     });
 
     return () => {
@@ -66,6 +79,13 @@ export default function Elections() {
     if (days > 0) return `${days}d ${hours}h ${minutes}m`;
     if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
     return `${minutes}m ${seconds}s`;
+  };
+
+  const handleCopyToken = (token) => {
+    if (!token || token === 'N/A') return;
+    navigator.clipboard.writeText(token);
+    setCopiedToken(token);
+    setTimeout(() => setCopiedToken(null), 2500);
   };
 
   return (
@@ -196,6 +216,88 @@ export default function Elections() {
           })}
         </div>
       )}
+
+      {/* PAST VOTING ACTIVITIES SECTION */}
+      {history.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-14 pt-8 border-t border-slate-200"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 text-[#006a4e] border border-emerald-200 rounded-xl">
+                <History className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-800 tracking-tight">Past Voting Activities</h3>
+                <p className="text-xs text-slate-500">Your anonymous cryptographic participation history and verification receipt tokens</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold font-mono text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+              {history.length} Record{history.length === 1 ? '' : 's'} Logged
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {history.map((record, index) => (
+              <div 
+                key={index} 
+                className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:border-emerald-200 transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">
+                      {record.election?.title || `Election #${record.election_id}`}
+                    </h4>
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                      Voted
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3">
+                    Participated on: {record.voted_at ? new Date(record.voted_at).toLocaleString('en-BD', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mt-2">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium mb-1">
+                    <span>Cryptographic Receipt Token</span>
+                    <button
+                      onClick={() => handleCopyToken(record.receipt_token)}
+                      className="text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      {copiedToken === record.receipt_token ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-600" /> Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" /> Copy Token
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="font-mono text-xs font-bold text-slate-700 break-all select-all">
+                    {record.receipt_token}
+                  </div>
+                  {record.receipt_token && record.receipt_token !== 'N/A' && (
+                    <a
+                      href={`/verify?token=${record.receipt_token}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-1 inline-flex"
+                    >
+                      Verify on Public Ledger <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
     </div>
   );
 }
+

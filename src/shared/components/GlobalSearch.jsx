@@ -15,7 +15,7 @@ const MODULES = [
   { name: 'Property Admin', path: '/property/admin', roles: ['PROPERTY_ADMIN', 'ADMIN'], icon: '🏡' },
   { name: 'Civil Registry', path: '/civil-registry', roles: ['VOTER', 'CANDIDATE'], icon: '📜' },
   { name: 'Kazi Desk', path: '/civil-registry/kazi', roles: ['KAZI_ADMIN', 'ADMIN'], icon: '🕌' },
-  { name: 'UP Chairman', path: '/civil-registry/chairman', roles: ['LOCAL_AUTHORITY_ADMIN', 'ADMIN'], icon: '🏛️' },
+  { name: 'UP Chairman', path: '/civil-registry/chairman', roles: ['LOCAL_AUTHORITY_ADMIN', 'ADMIN', 'SUPER_ADMIN'], icon: '🏛️' },
   { name: 'Candidate Workspace', path: '/candidate/dashboard', roles: ['VOTER', 'CANDIDATE'], icon: '💼' },
   { name: 'Apply as Candidate', path: '/candidate/apply', roles: ['VOTER', 'CANDIDATE'], icon: '📝' },
   { name: 'Voter History', path: '/voter/history', roles: ['VOTER', 'CANDIDATE'], icon: '🕒' },

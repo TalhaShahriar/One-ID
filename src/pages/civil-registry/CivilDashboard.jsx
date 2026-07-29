@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import NikahnamaCertificate from '../../components/NikahnamaCertificate.jsx';
 import BirthCertificate from '../../components/BirthCertificate.jsx';
 import DeathCertificate from '../../components/DeathCertificate.jsx';
+import DivorceCertificate from '../../components/DivorceCertificate.jsx';
+import { HeartCrack } from 'lucide-react';
 
 export default function CivilDashboard() {
   const [activeTab, setActiveTab] = useState('marriage'); // 'marriage', 'birth', 'death'
@@ -44,6 +46,7 @@ export default function CivilDashboard() {
   // Modals state
   const [showNoticeModal, setShowNoticeModal] = useState(false);
   const [divorceType, setDivorceType] = useState('TALAQ');
+  const [selectedPastMarriage, setSelectedPastMarriage] = useState(null);
 
   const [showBirthModal, setShowBirthModal] = useState(false);
   const [showDeathModal, setShowDeathModal] = useState(false);
@@ -552,6 +555,63 @@ export default function CivilDashboard() {
                       </div>
                     )}
                   </motion.div>
+                )}
+
+                {/* Past Marriages & Dissolution Records */}
+                {marriageStatus?.pastMarriages && marriageStatus.pastMarriages.length > 0 && (
+                  <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                      <HeartCrack className="h-5 w-5 text-red-600" />
+                      Past Marriages & Dissolution Logs ({marriageStatus.pastMarriages.length})
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                      Sovereign record logs of finalized marital dissolutions. Click any record to inspect or download the official Divorce Certificate.
+                    </p>
+
+                    <div className="space-y-3">
+                      {marriageStatus.pastMarriages.map((pm) => (
+                        <div key={pm.id} className="bg-slate-50 border border-slate-200/80 p-4 rounded-xl text-xs space-y-3 hover:shadow-xs transition-shadow">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="bg-red-50 border border-red-200 text-red-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
+                                Dissolved
+                              </span>
+                              <h4 className="font-bold text-slate-800 mt-1.5 font-mono">
+                                Original Reg: {pm.marriageId}
+                              </h4>
+                            </div>
+                            <button
+                              onClick={() => setSelectedPastMarriage(pm)}
+                              className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition shadow-3xs cursor-pointer flex items-center gap-1"
+                            >
+                              <FileText className="w-3.5 h-3.5" /> View Certificate
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-700 font-medium pt-1 border-t border-slate-200/50">
+                            <div>
+                              <span className="text-slate-400">Groom:</span> <span className="font-mono">{pm.groomOneId}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Bride:</span> <span className="font-mono">{pm.brideOneId}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Filing Type:</span> <span className="font-bold uppercase text-stone-600">{pm.divorceProceeding?.divorceType || 'TALAQ'}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Dissolved On:</span> <span className="font-mono">
+                                {pm.divorceProceeding?.actualEffectiveDate 
+                                  ? new Date(pm.divorceProceeding.actualEffectiveDate).toLocaleDateString()
+                                  : pm.divorceProceeding?.effectiveDate
+                                    ? new Date(pm.divorceProceeding.effectiveDate).toLocaleDateString()
+                                    : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
               </div>
@@ -1196,6 +1256,33 @@ export default function CivilDashboard() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {selectedPastMarriage && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-3xl bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden relative p-6 space-y-6"
+          >
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <h3 className="text-sm font-black uppercase text-slate-800 tracking-tight flex items-center gap-1.5">
+                <FileText className="h-5 w-5 text-red-600" />
+                Sovereign Dissolution Certificate Preview
+              </h3>
+              <button
+                onClick={() => setSelectedPastMarriage(null)}
+                className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-lg transition cursor-pointer font-bold border border-slate-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[70vh] p-2">
+              <DivorceCertificate marriage={selectedPastMarriage} />
+            </div>
           </motion.div>
         </div>
       )}

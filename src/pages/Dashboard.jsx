@@ -237,28 +237,33 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           
           {/* Card 1: Voting */}
-          <Link 
-            to="/elections" 
-            className="group relative overflow-hidden bg-white rounded-xl border border-gray-200/60 p-5 shadow-sm hover:shadow-md hover:border-[#7C3AED]/40 transition-all flex flex-col justify-between"
-            id="panel-voting"
-          >
+          <div className="group relative overflow-hidden bg-white rounded-xl border border-gray-200/60 p-5 shadow-sm hover:shadow-md hover:border-[#7C3AED]/40 transition-all flex flex-col justify-between" id="panel-voting">
             <div className="space-y-4">
-              <div className="w-10 h-10 rounded-lg bg-[#7C3AED]/10 flex items-center justify-center text-[#7C3AED] group-hover:scale-105 transition-transform">
-                <Vote className="w-5 h-5" />
+              <div className="flex justify-between items-center">
+                <div className="w-10 h-10 rounded-lg bg-[#7C3AED]/10 flex items-center justify-center text-[#7C3AED] group-hover:scale-105 transition-transform">
+                  <Vote className="w-5 h-5" />
+                </div>
+                <Link to="/voter/history" className="text-[10px] font-bold text-[#7C3AED] hover:underline flex items-center gap-0.5">
+                  Receipts <ArrowRight className="w-3 h-3" />
+                </Link>
               </div>
               <div>
                 <h4 className="font-extrabold text-gray-900 group-hover:text-[#7C3AED] transition-colors leading-snug flex items-center justify-between gap-1">
-                  <span>Voter Card</span>
+                  <Link to="/elections" className="hover:underline">Voter Card</Link>
                   <span className="font-bangla font-semibold text-[10px] text-[#7C3AED] bg-[#7C3AED]/10 px-1.5 py-0.5 rounded-md">ভোটিং</span>
                 </h4>
-                <p className="text-[10px] text-gray-500 mt-1">Zero-knowledge proof ballot cabinet</p>
+                <p className="text-[10px] text-gray-500 mt-1">Zero-knowledge proof ballot cabinet & receipts</p>
               </div>
             </div>
             <div className="flex items-center justify-between border-t border-gray-50 mt-4 pt-3 text-xs leading-none">
-              <span className="font-mono font-bold text-[#7C3AED]">{summary.voting.activeElections} Active election{summary.voting.activeElections === 1 ? '' : 's'}</span>
-              <ArrowRight className="w-3.5 h-3.5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+              <Link to="/elections" className="font-mono font-bold text-[#7C3AED] hover:underline">
+                {summary.voting.activeElections} Active election{summary.voting.activeElections === 1 ? '' : 's'}
+              </Link>
+              <Link to="/voter/history" className="text-gray-400 hover:text-[#7C3AED]">
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </div>
-          </Link>
+          </div>
 
           {/* Card 2: Tax */}
           <Link 

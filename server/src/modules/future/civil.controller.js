@@ -92,14 +92,14 @@ export const registerMarriage = async (req, res, next) => {
     }
 
     if (finalReligion === 'ISLAM') {
-      if (req.user.role !== 'KAZI_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({ error: 'Access denied. Licensed Nikah Registrar (Kazi) keys required for Islamic marriages.' });
+      if (req.user.role !== 'KAZI_ADMIN' && req.user.role !== 'CIVIL_REGISTRY_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+        return res.status(403).json({ error: 'Access denied. Licensed Nikah Registrar (Kazi) or Civil Registry keys required for Islamic marriages.' });
       }
       if (!witness1OneId || !witness2OneId || !mahrAmountBDT || !mahrType) {
         return res.status(400).json({ error: 'All primary marriage details (Groom, Bride, 2 Witnesses, Mahr details) are legally required for Nikah.' });
       }
     } else {
-      if (req.user.role !== 'CIVIL_REGISTRY_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+      if (req.user.role !== 'CIVIL_REGISTRY_ADMIN' && req.user.role !== 'KAZI_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
         return res.status(403).json({ error: 'Access denied. Civil Registry Admin required for civil marriage registration.' });
       }
     }
@@ -203,6 +203,22 @@ export const getMyMarriageStatus = async (req, res, next) => {
       }
     });
 
+    const pastMarriages = await prisma.marriageRecord.findMany({
+      where: {
+        OR: [
+          { groomOneId: user.oneid },
+          { brideOneId: user.oneid }
+        ],
+        status: 'DISSOLVED'
+      },
+      include: {
+        divorceProceeding: true
+      },
+      orderBy: {
+        registrationDate: 'desc'
+      }
+    });
+
     res.json({
       maritalStatus: user.maritalStatus,
       marriage: marriage ? {
@@ -220,7 +236,23 @@ export const getMyMarriageStatus = async (req, res, next) => {
         status: marriage.status,
         ledgerRecordId: marriage.ledgerRecordId,
         divorceProceeding: marriage.divorceProceeding
-      } : null
+      } : null,
+      pastMarriages: pastMarriages.map(pm => ({
+        id: pm.id,
+        marriageId: pm.marriageId,
+        groomOneId: pm.groomOneId,
+        brideOneId: pm.brideOneId,
+        kaziOneId: pm.kaziOneId,
+        witness1OneId: pm.witness1OneId,
+        witness2OneId: pm.witness2OneId,
+        mahrAmountBDT: pm.mahrAmountBDT,
+        mahrType: pm.mahrType,
+        registrationDate: pm.registrationDate,
+        nikahnaamaHash: pm.nikahnaamaHash,
+        status: pm.status,
+        ledgerRecordId: pm.ledgerRecordId,
+        divorceProceeding: pm.divorceProceeding
+      }))
     });
   } catch (err) {
     next(err);
@@ -307,7 +339,8 @@ export const formArbitrationCouncil = async (req, res, next) => {
   try {
     const { divorceProceedingId } = req.body;
 
-    if (req.user.role !== 'LOCAL_AUTHORITY_ADMIN' && req.user.role !== 'ADMIN') {
+    const allowedRoles = ['LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Access restricted: Local Authority (Union Parishad Chairman) credentials required.' });
     }
 
@@ -354,7 +387,8 @@ export const logReconciliationAttempt = async (req, res, next) => {
   try {
     const { divorceProceedingId } = req.body;
 
-    if (req.user.role !== 'LOCAL_AUTHORITY_ADMIN' && req.user.role !== 'ADMIN') {
+    const allowedRoles = ['LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Chairman authentication required.' });
     }
 
@@ -379,7 +413,8 @@ export const reconcileMarriage = async (req, res, next) => {
   try {
     const { divorceProceedingId } = req.body;
 
-    if (req.user.role !== 'LOCAL_AUTHORITY_ADMIN' && req.user.role !== 'ADMIN') {
+    const allowedRoles = ['LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Chairman authentication required.' });
     }
 
@@ -425,7 +460,8 @@ export const finalizeDivorce = async (req, res, next) => {
   try {
     const { divorceProceedingId } = req.body;
 
-    if (req.user.role !== 'LOCAL_AUTHORITY_ADMIN' && req.user.role !== 'ADMIN') {
+    const allowedRoles = ['LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Chairman authentication required.' });
     }
 
@@ -601,7 +637,8 @@ export const verifyCertificate = async (req, res, next) => {
 // 9. ADMIN GET ALL PROCEEDINGS
 export const getAdminProceedings = async (req, res, next) => {
   try {
-    if (req.user.role !== 'LOCAL_AUTHORITY_ADMIN' && req.user.role !== 'ADMIN') {
+    const allowedRoles = ['LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN', 'KAZI_ADMIN'];
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Access restricted to administrators / Local Chairman.' });
     }
 

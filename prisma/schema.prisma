@@ -191,10 +191,11 @@ model VoteToken {
 }
 
 model VoterElection {
-  voter_id    Int
-  election_id Int
-  has_voted   Boolean   @default(false)
-  voted_at    DateTime?
+  voter_id      Int
+  election_id   Int
+  has_voted     Boolean   @default(false)
+  voted_at      DateTime?
+  receipt_token String?
 
   user        User      @relation(fields: [voter_id], references: [id])
   election    Election  @relation(fields: [election_id], references: [id])
