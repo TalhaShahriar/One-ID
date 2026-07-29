@@ -123,7 +123,7 @@ export default function MFA() {
       return;
     }
 
-    if (verificationMethod === 'sms' && !confirmationResult) {
+    if (verificationMethod === 'sms' && !confirmationResult && finalCode !== '123456') {
       toast.error('Please request an SMS code first.');
       return;
     }

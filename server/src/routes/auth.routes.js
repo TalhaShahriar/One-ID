@@ -125,7 +125,7 @@ router.post('/verify-otp', async (req, res, next) => {
       return res.status(400).json({ error: 'OTP expired. Request a new one.' });
     }
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         is_verified: true,
@@ -134,9 +134,33 @@ router.post('/verify-otp', async (req, res, next) => {
       }
     });
 
-    await logEvent(user.id, 'EMAIL_VERIFIED', 'Email verified successfully', req.ip, null);
+    await logEvent(user.id, 'EMAIL_VERIFIED', 'Email verified successfully with auto-login', req.ip, null);
 
-    return res.status(200).json({ message: 'Email verified. You can now log in.' });
+    const JWT_SECRET = process.env.JWT_SECRET;
+    const token = jwt.sign(
+      {
+        userId: updatedUser.id,
+        role: updatedUser.role,
+        constituency: updatedUser.constituency,
+        oneid: updatedUser.oneid
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.status(200).json({ 
+      message: 'Email verified successfully! Logging you in...',
+      token,
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        constituency: updatedUser.constituency,
+        oneid: updatedUser.oneid,
+        maritalStatus: updatedUser.maritalStatus
+      }
+    });
   } catch (err) {
     next(err);
   }

@@ -4,11 +4,13 @@ import { toast } from 'sonner';
 import { ShieldCheck, Loader2, ArrowLeft, RefreshCw, Home } from 'lucide-react';
 import { motion } from 'motion/react';
 import api from '../lib/api.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function VerifyOTP() {
   const [searchParams] = useSearchParams();
   const { state } = useLocation();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const email = state?.email || searchParams.get('email') || '';
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -87,8 +89,14 @@ export default function VerifyOTP() {
         otp: finalCode,
       });
 
-      toast.success(response.data.message || 'OneID registered and verified!');
-      navigate('/login');
+      if (response.data.token && response.data.user) {
+        login(response.data.token, response.data.user);
+        toast.success(`Welcome to OneID, ${response.data.user.name}! Account verified and logged in.`);
+        navigate('/dashboard');
+      } else {
+        toast.success(response.data.message || 'OneID registered and verified!');
+        navigate('/login');
+      }
     } catch (err) {
       console.error('❌ Verification failed:', err);
       const errMsg = err.response?.data?.error || 'Validation failed. Input code does not match.';
