@@ -302,7 +302,7 @@ router.get('/my-applications', authenticateJWT, authorizeRoles('VOTER', 'CANDIDA
  * POST /api/voting/candidates/seed-test
  * Instantly seed approved test candidates for a specific election & constituency to accelerate verification testing.
  */
-router.post('/seed-test', authenticateJWT, async (req, res, next) => {
+router.post('/seed-test', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), async (req, res, next) => {
   try {
     const { election_id, constituency } = req.body;
 

@@ -201,6 +201,38 @@ export default function AdminElections() {
     }
   };
 
+  const handleSeedCandidates = async (e, el) => {
+    e.stopPropagation();
+    try {
+      toast.loading(`Seeding candidates for ${el.title}...`, { id: `seed-cand-${el.id}` });
+      await api.post('/candidates/seed-test', {
+        election_id: el.id,
+        constituency: el.constituency_scope === 'ALL' || el.constituency_scope === 'NATIONAL' ? 'Dhaka-1' : el.constituency_scope
+      });
+      toast.success('Successfully seeded approved test candidates!', { id: `seed-cand-${el.id}` });
+      fetchElections();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Failed to seed test candidates.', { id: `seed-cand-${el.id}` });
+    }
+  };
+
+  const handleSeedVotes = async (e, el) => {
+    e.stopPropagation();
+    try {
+      toast.loading(`Seeding random votes for ${el.title}...`, { id: `seed-votes-${el.id}` });
+      const res = await api.post('/votes/seed-votes', {
+        election_id: el.id,
+        count: 10
+      });
+      toast.success(`Successfully seeded ${res.data.count} random votes!`, { id: `seed-votes-${el.id}` });
+      fetchElections();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Failed to seed random votes.', { id: `seed-votes-${el.id}` });
+    }
+  };
+
   // Helper mapping color-coded status badges
   const getStatusBadge = (status) => {
     switch (status) {
@@ -297,7 +329,25 @@ export default function AdminElections() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2 flex-wrap max-w-xs">
+                      {(el.status === 'SCHEDULED' || el.status === 'ACTIVE') && (
+                        <button
+                          onClick={(e) => handleSeedCandidates(e, el)}
+                          className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white transition-colors flex items-center gap-1 text-xs font-bold"
+                          title="Seed Test Candidates"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Seed Cands
+                        </button>
+                      )}
+                      {el.status === 'ACTIVE' && (
+                        <button
+                          onClick={(e) => handleSeedVotes(e, el)}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white transition-colors flex items-center gap-1 text-xs font-bold"
+                          title="Seed Random Votes"
+                        >
+                          <Vote className="h-3.5 w-3.5" /> Seed Votes
+                        </button>
+                      )}
                       <button
                         onClick={(e) => openEditModal(el, e)}
                         className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-[#006a4e] text-slate-600 hover:text-white transition-colors flex items-center gap-1 text-xs font-bold"

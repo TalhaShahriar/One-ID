@@ -25,13 +25,24 @@ router.get('/summary', authenticateJWT, async (req, res, next) => {
     const { oneid } = user;
 
     // 1. Voting summary panel matching Election model
+    const voterConstituency = user.constituency;
+    const electionFilter = {
+      status: 'ACTIVE',
+      OR: [
+        { constituency_scope: voterConstituency },
+        { constituency_scope: { contains: voterConstituency, mode: 'insensitive' } },
+        { constituency_scope: 'ALL' },
+        { constituency_scope: 'NATIONAL' }
+      ]
+    };
+
     const activeElectionsCount = await prisma.election.count({
-      where: { status: 'ACTIVE' }
+      where: electionFilter
     });
     
     // Find active elections and check if user voted in any of them
     const activeElections_instances = await prisma.election.findMany({
-      where: { status: 'ACTIVE' },
+      where: electionFilter,
       select: { id: true }
     });
     const activeElectionIds = activeElections_instances.map(e => e.id);
@@ -56,13 +67,14 @@ router.get('/summary', authenticateJWT, async (req, res, next) => {
         include: { returns: true }
       });
       if (taxProfile && taxProfile.returns) {
-         currentYearFiled = taxProfile.returns.some(r => r.taxYear === 2026 || r.taxYear === 2025);
-         const unpaidList = taxProfile.returns.filter(r => r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL');
-         totalUnpaid = unpaidList.reduce((sum, r) => {
-           const finalTax = r.finalTax || 0;
-           const paidAmount = r.paidAmount || 0;
-           return sum + (finalTax - paidAmount);
-         }, 0);
+        const currentYear = new Date().getFullYear();
+        currentYearFiled = taxProfile.returns.some(r => r.taxYear === currentYear || r.taxYear === currentYear - 1);
+        const unpaidList = taxProfile.returns.filter(r => r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL');
+        totalUnpaid = unpaidList.reduce((sum, r) => {
+          const finalTax = r.finalTax || 0;
+          const paidAmount = r.paidAmount || 0;
+          return sum + (finalTax - paidAmount);
+        }, 0);
       }
     }
 
@@ -428,7 +440,7 @@ router.get('/public-verify-identity/:oneid', async (req, res, next) => {
     let taxArrears = 0;
     let totalTaxPaid = 0;
     let lastTaxReturnYear = null;
-    let tinNumber = user.tax_profile?.tinNumber || null;
+    let tinNumber = user.tax_profile?.tin || null;
 
     if (user.tax_profile && user.tax_profile.returns) {
       taxFiled = user.tax_profile.returns.length > 0;

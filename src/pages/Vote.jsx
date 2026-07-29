@@ -28,25 +28,6 @@ export default function Vote() {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
-
-  const handleSeedTestCandidates = async () => {
-    setIsSeeding(true);
-    try {
-      await api.post('/candidates/seed-test', {
-        election_id: id,
-        constituency: user?.constituency
-      });
-      toast.success('Successfully seeded approved test candidates!');
-      fetchElectionDetails();
-    } catch (err) {
-      console.error('Core seeding failure:', err);
-      const errMsg = err.response?.data?.error || 'Failed to seed test candidates.';
-      toast.error(errMsg);
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   const fetchElectionDetails = async () => {
     try {
@@ -183,13 +164,7 @@ export default function Vote() {
           <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1 mb-4">
             There are no candidate nomination applications approved inside this constituency.
           </p>
-          <button
-            onClick={handleSeedTestCandidates}
-            disabled={isSeeding}
-            className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#006a4e] hover:bg-[#005a40] text-white px-4 py-2 rounded-xl shadow-sm transition disabled:opacity-50 cursor-pointer"
-          >
-            {isSeeding ? 'Generating Candidates...' : 'Instantly Seed Test Candidates'}
-          </button>
+
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">

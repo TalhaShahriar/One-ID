@@ -11,7 +11,7 @@ import webauthnRoutes from './webauthn.routes.js';
 
 const router = Router();
 router.use('/webauthn', webauthnRoutes);
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-random-key-change-this-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // POST /api/auth/register
 router.post('/register', async (req, res, next) => {
@@ -213,6 +213,11 @@ router.post('/login', async (req, res, next) => {
 
     if (!user.is_verified) {
       return res.status(403).json({ error: 'Account not verified. Please verify your email first.', unverified: true });
+    }
+
+    if (!user.isActive) {
+      await logEvent(user.id, 'LOGIN_BLOCKED', 'Login attempt on deactivated account', req.ip, null);
+      return res.status(403).json({ error: 'This account has been deactivated. Please contact support.' });
     }
 
     const validPassword = await bcrypt.compare(password, user.password_hash);

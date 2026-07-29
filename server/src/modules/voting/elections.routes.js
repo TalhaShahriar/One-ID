@@ -100,10 +100,9 @@ router.get('/', authenticateJWT, async (req, res, next) => {
       const voterConstituency = req.user.constituency;
       const elections = await prisma.election.findMany({
         where: {
-          status: 'ACTIVE',
+          status: { in: ['ACTIVE', 'CLOSED', 'RESULTS_PUBLISHED'] },
           OR: [
             { constituency_scope: voterConstituency },
-            { constituency_scope: { contains: voterConstituency, mode: 'insensitive' } },
             { constituency_scope: 'ALL' },
             { constituency_scope: 'NATIONAL' }
           ]
@@ -247,7 +246,7 @@ router.patch('/:id', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), as
       return res.status(404).json({ error: 'Election not found.' });
     }
 
-    if (electionCurrent.status === 'CLOSED' || electionCurrent.status === 'CANCELLED' || electionCurrent.status === 'RESULTS_PUBLISHED') {
+    if (electionCurrent.status === 'CLOSED' || electionCurrent.status === 'RESULTS_PUBLISHED') {
       return res.status(400).json({ error: 'Closed or published elections cannot receive parameter changes.' });
     }
 
@@ -276,6 +275,16 @@ router.patch('/:id', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), as
     const finalEnd = updateData.end_at || electionCurrent.end_at;
     if (finalStart >= finalEnd) {
       return res.status(400).json({ error: 'The scheduled end date must follow the start date.' });
+    }
+
+    // Auto-reconcile status if we are editing dates
+    const now = new Date();
+    if (finalStart > now) {
+      updateData.status = 'SCHEDULED';
+    } else if (finalStart <= now && finalEnd > now) {
+      updateData.status = 'ACTIVE';
+    } else if (finalEnd <= now) {
+      updateData.status = 'CLOSED';
     }
 
     const updatedElection = await prisma.election.update({
@@ -327,8 +336,19 @@ router.delete('/:id', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), a
       return res.status(400).json({ error: 'Cannot delete an election that already contains vote transactions.' });
     }
 
+    // Clean up all related records in the correct order to avoid FK constraint errors
+    await prisma.voterElection.deleteMany({
+      where: { election_id: electionId }
+    });
+
     await prisma.candidate.deleteMany({
       where: { election_id: electionId }
+    });
+
+    // Nullify audit log election references so they remain for historical purposes
+    await prisma.auditLog.updateMany({
+      where: { election_id: electionId },
+      data: { election_id: null }
     });
 
     await prisma.election.delete({

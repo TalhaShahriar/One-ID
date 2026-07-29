@@ -318,4 +318,142 @@ router.get('/blockchain/verify/:electionId', authenticateJWT, authorizeRoles('AD
   }
 });
 
+/**
+ * POST /api/voting/votes/seed-votes - Instantly seed random votes for a specific election
+ * ADMIN and SUPER_ADMIN only
+ */
+router.post('/seed-votes', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), async (req, res, next) => {
+  try {
+    const { election_id, count } = req.body;
+    
+    if (!election_id) {
+      return res.status(400).json({ error: 'Election ID is required.' });
+    }
+
+    const electionId = parseInt(election_id, 10);
+    const numVotes = parseInt(count, 10) || 10;
+
+    const election = await prisma.election.findUnique({
+      where: { id: electionId }
+    });
+
+    if (!election || election.status !== 'ACTIVE') {
+      return res.status(400).json({ error: 'Election does not exist or is not ACTIVE.' });
+    }
+
+    const candidates = await prisma.candidate.findMany({
+      where: { election_id: electionId, status: 'APPROVED' }
+    });
+
+    if (candidates.length === 0) {
+      return res.status(400).json({ error: 'No approved candidates found for this election.' });
+    }
+
+    // Get voters who haven't voted in this election yet
+    const voters = await prisma.user.findMany({
+      where: {
+        role: 'VOTER',
+        voted_elections: {
+          none: {
+            election_id: electionId
+          }
+        }
+      },
+      take: numVotes
+    });
+
+    if (voters.length === 0) {
+      return res.status(400).json({ error: 'No eligible voters available to seed votes.' });
+    }
+
+    const seededVotes = [];
+
+    // Process votes sequentially to maintain hash chain
+    for (const voter of voters) {
+      const candidate = candidates[Math.floor(Math.random() * candidates.length)];
+      
+      const result = await prisma.$transaction(async (tx) => {
+        const lastVote = await tx.vote.findFirst({
+          where: { election_id: electionId },
+          orderBy: { cast_at: 'desc' }
+        });
+        const prevHash = lastVote ? lastVote.vote_hash : '0'.repeat(64);
+
+        const newVoteId = uuidv4();
+        const castAt = new Date();
+
+        const voteHash = computeVoteHash(newVoteId, candidate.id, electionId, castAt.toISOString(), prevHash);
+
+        const vote = await tx.vote.create({
+          data: {
+            id: newVoteId,
+            election_id: electionId,
+            candidate_id: candidate.id,
+            constituency: candidate.constituency,
+            cast_at: castAt,
+            prev_hash: prevHash,
+            vote_hash: voteHash
+          }
+        });
+
+        const token = uuidv4();
+        await tx.voteToken.create({
+          data: {
+            token,
+            vote_id: newVoteId
+          }
+        });
+
+        await tx.voterElection.create({
+          data: {
+            voter_id: voter.id,
+            election_id: electionId,
+            has_voted: true,
+            voted_at: castAt
+          }
+        });
+
+        const ledgerRecord = await appendLedgerRecord('VOTE', {
+          eventType: 'BALLOT_CAST',
+          electionId,
+          constituency: candidate.constituency,
+          voteId: newVoteId,
+          integrityHash: voteHash
+        }, tx);
+
+        return { vote, token, castAt, ledgerRecordId: ledgerRecord.id };
+      });
+      seededVotes.push(result);
+      
+      const io = req.app.get('io');
+      if (io) {
+        const socketPayload = {
+          election_id: electionId,
+          candidate_id: candidate.id,
+          constituency: candidate.constituency
+        };
+        io.to("election:" + electionId).emit("vote:cast", socketPayload);
+        io.to("election_" + electionId).emit("vote:cast", socketPayload);
+        io.emit("ledger:new_block", { sector: 'VOTE' });
+      }
+    }
+    
+    await logEvent(
+      req.user.userId,
+      "VOTES_SEEDED",
+      `Bulk seeded ${seededVotes.length} random votes in election ${electionId}.`,
+      req.ip,
+      electionId
+    );
+
+    return res.status(201).json({
+      message: `Successfully seeded ${seededVotes.length} votes.`,
+      count: seededVotes.length
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

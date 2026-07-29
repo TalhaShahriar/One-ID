@@ -55,7 +55,7 @@ router.get('/', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), async (
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const { type, severity, electionId } = req.query;
+    const { type, severity } = req.query;
 
     const where = {};
     if (type) {
@@ -63,12 +63,6 @@ router.get('/', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN'), async (
     }
     if (severity) {
       where.severity = severity;
-    }
-    if (electionId) {
-      const parsedElectionId = parseInt(electionId, 10);
-      if (!isNaN(parsedElectionId)) {
-        where.election_id = parsedElectionId;
-      }
     }
 
     const total = await prisma.anomalyFlag.count({ where });

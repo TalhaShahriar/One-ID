@@ -8,7 +8,7 @@ if (!JWT_SECRET || JWT_SECRET === 'super-secret-random-key-change-this-in-produc
 /**
  * Middleware: authenticate
  * Verifies JWT token from Authorization absolute header 'Bearer <token>'
- * Appends safe user properties to req.user = { userId, id, role, constituency }
+ * Appends safe user properties to req.user = { userId, id, role, constituency, oneid }
  */
 export function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -30,7 +30,8 @@ export function authenticate(req, res, next) {
       userId: userId,
       id: userId,
       role: decoded.role,
-      constituency: decoded.constituency
+      constituency: decoded.constituency,
+      oneid: decoded.oneid
     };
     next();
   });

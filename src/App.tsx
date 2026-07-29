@@ -419,6 +419,8 @@ function RootRedirect() {
     return <Navigate to="/civil-registry/kazi" replace />;
   } else if (user.role === 'LOCAL_AUTHORITY_ADMIN') {
     return <Navigate to="/civil-registry/chairman" replace />;
+  } else if (user.role === 'CIVIL_REGISTRY_ADMIN') {
+    return <Navigate to="/civil-registry/admin" replace />;
   } else if (user.role === 'CANDIDATE' || user.role === 'VOTER') {
     return <Navigate to="/dashboard" replace />;
   } else {
@@ -807,7 +809,7 @@ export default function App() {
               <Route 
                 path="/civil-registry" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'KAZI_ADMIN', 'LOCAL_AUTHORITY_ADMIN', 'SUPER_ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'KAZI_ADMIN', 'LOCAL_AUTHORITY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'SUPER_ADMIN']}>
                     <CitizenLayout>
                       <CivilDashboard />
                     </CitizenLayout>
@@ -815,9 +817,17 @@ export default function App() {
                 } 
               />
               <Route 
+                path="/civil-registry/admin" 
+                element={
+                  <ProtectedRoute roles={['CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
+                    <KaziRegistry />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
                 path="/civil-registry/kazi" 
                 element={
-                  <ProtectedRoute roles={['KAZI_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
+                  <ProtectedRoute roles={['KAZI_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'ADMIN', 'SUPER_ADMIN']}>
                     <KaziRegistry />
                   </ProtectedRoute>
                 } 
@@ -836,7 +846,7 @@ export default function App() {
               <Route 
                 path="/profile" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'SUPER_ADMIN', 'TAX_ADMIN', 'VEHICLE_ADMIN', 'PROPERTY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'KAZI_ADMIN', 'LOCAL_AUTHORITY_ADMIN']}>
                     <CitizenLayout>
                       <Profile />
                     </CitizenLayout>
@@ -846,7 +856,7 @@ export default function App() {
               <Route 
                 path="/settings" 
                 element={
-                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN']}>
+                  <ProtectedRoute roles={['VOTER', 'CANDIDATE', 'ADMIN', 'SUPER_ADMIN', 'TAX_ADMIN', 'VEHICLE_ADMIN', 'PROPERTY_ADMIN', 'CIVIL_REGISTRY_ADMIN', 'KAZI_ADMIN', 'LOCAL_AUTHORITY_ADMIN']}>
                     <CitizenLayout>
                       <Profile />
                     </CitizenLayout>

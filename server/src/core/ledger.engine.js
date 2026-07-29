@@ -401,7 +401,7 @@ export function verifyVoteChain(votes) {
     const expectedPrevHash = i === 0 ? '0'.repeat(64) : votes[i - 1].vote_hash;
     
     if (current.prev_hash !== expectedPrevHash) {
-      return { valid: false, brokenAt: current.id };
+      return { valid: false, brokenAt: i + 1, voteId: current.id };
     }
     const computedHash = computeVoteHash(
       current.id, 
@@ -411,7 +411,7 @@ export function verifyVoteChain(votes) {
       current.prev_hash
     );
     if (current.vote_hash !== computedHash) {
-      return { valid: false, brokenAt: current.id };
+      return { valid: false, brokenAt: i + 1, voteId: current.id };
     }
   }
   return { valid: true, totalVotes: votes.length };

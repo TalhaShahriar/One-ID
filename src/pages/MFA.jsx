@@ -48,7 +48,8 @@ export default function MFA() {
         'VEHICLE_ADMIN': '/vehicle/admin',
         'PROPERTY_ADMIN': '/property/admin',
         'CIVIL_REGISTRY_ADMIN': '/civil-registry/admin',
-        'KAZI_ADMIN': '/civil-registry/kazi'
+        'KAZI_ADMIN': '/civil-registry/kazi',
+        'LOCAL_AUTHORITY_ADMIN': '/civil-registry/chairman'
       };
       navigate(roles[data.user.role] || '/dashboard');
     }
@@ -155,7 +156,8 @@ export default function MFA() {
         'VEHICLE_ADMIN': '/vehicle/admin',
         'PROPERTY_ADMIN': '/property/admin',
         'CIVIL_REGISTRY_ADMIN': '/civil-registry/admin',
-        'KAZI_ADMIN': '/civil-registry/kazi'
+        'KAZI_ADMIN': '/civil-registry/kazi',
+        'LOCAL_AUTHORITY_ADMIN': '/civil-registry/chairman'
       };
       navigate(roles[user.role] || '/dashboard');
 
