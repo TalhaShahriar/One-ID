@@ -196,16 +196,17 @@ export default function MFA() {
     inputRefs[0].current.focus();
   };
 
-  const sendSMS = async () => {
-    if (resendCooldown > 0 || isResending) return;
+  const sendSMS = async (force = false) => {
+    if (!force && (resendCooldown > 0 || isResending)) return;
     setIsResending(true);
+    setupRecaptcha();
     try {
       const appVerifier = window.recaptchaVerifier;
       const confirmation = await signInWithPhoneNumber(auth, phone, appVerifier);
       setConfirmationResult(confirmation);
       toast.success(`MFA code sent via SMS to ${phone}`);
       setResendCooldown(60);
-      inputRefs[0].current.focus();
+      inputRefs[0].current?.focus();
     } catch (err) {
       console.error('Error sending SMS:', err);
       setFirebaseError(err);
@@ -221,7 +222,7 @@ export default function MFA() {
 
   const handleResend = async () => {
     if (verificationMethod === 'sms') {
-      await sendSMS();
+      await sendSMS(true);
     } else {
       if (resendCooldown > 0 || isResending) return;
       setIsResending(true);
@@ -310,6 +311,26 @@ export default function MFA() {
         <div className="bg-white py-8 px-4 border border-gray-200/80 shadow-sm sm:rounded-2xl sm:px-10">
           <div className="space-y-6">
             
+            {verificationMethod === 'sms' && !confirmationResult && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center space-y-3">
+                <p className="text-xs text-amber-800 font-medium">
+                  An SMS verification challenge has not been dispatched to <strong>{phone}</strong> yet.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => sendSMS(true)}
+                  disabled={isResending}
+                  className="w-full bg-[#006A4E] hover:bg-[#004e38] text-white rounded-lg py-2.5 text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                >
+                  {isResending ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Requesting SMS Code via Firebase...</>
+                  ) : (
+                    <><Smartphone className="h-4 w-4" /> Request SMS OTP Code Now</>
+                  )}
+                </button>
+              </div>
+            )}
+
             <div className="flex justify-between gap-2">
               {otp.map((digit, index) => (
                 <input
@@ -341,15 +362,15 @@ export default function MFA() {
 
               <button
                 onClick={handleResend}
-                disabled={resendCooldown > 0 || isResending}
+                disabled={isResending || (verificationMethod === 'email' && resendCooldown > 0)}
                 className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg py-2 text-xs font-bold transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {isResending ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Dispatching...</>
-                ) : resendCooldown > 0 ? (
+                ) : (verificationMethod === 'email' && resendCooldown > 0) ? (
                   <>Resend PIN in {resendCooldown}s</>
                 ) : (
-                  <><RefreshCw className="h-3.5 w-3.5 text-slate-500" /> Resend Session Challenge</>
+                  <><RefreshCw className="h-3.5 w-3.5 text-slate-500" /> {verificationMethod === 'sms' ? 'Re-request SMS OTP Code' : 'Resend Session Challenge'}</>
                 )}
               </button>
             </div>
