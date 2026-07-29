@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 // Setup Mock Closures on globalThis to prevent hoisting ReferenceErrors in Jest ESM
 globalThis.mockFindUniqueElection = jest.fn();
 globalThis.mockFindUniqueCandidate = jest.fn();
+globalThis.mockFindUniqueUser = jest.fn();
 globalThis.mockFindUniqueVoterElection = jest.fn();
 globalThis.mockFindFirstVote = jest.fn();
 globalThis.mockVoteCreate = jest.fn();
@@ -24,6 +25,9 @@ jest.unstable_mockModule('@prisma/client', () => {
         },
         candidate: {
           findUnique: (args) => globalThis.mockFindUniqueCandidate(args),
+        },
+        user: {
+          findUnique: (args) => globalThis.mockFindUniqueUser(args),
         },
         voterElection: {
           findUnique: (args) => globalThis.mockFindUniqueVoterElection(args),
@@ -80,7 +84,7 @@ jest.unstable_mockModule('@prisma/client', () => {
 });
 
 // Dynamic imports are required after unstable_mockModule for correct ESM resolution
-const { default: votesRouter } = await import('../routes/votes.js');
+const { default: votesRouter } = await import('../src/modules/voting/votes.routes.js');
 
 describe('VoteChain BD Secure Voting and Receipt Verification Suite', () => {
   let app;
@@ -129,6 +133,11 @@ describe('VoteChain BD Secure Voting and Receipt Verification Suite', () => {
       status: 'APPROVED',
     });
 
+    globalThis.mockFindUniqueUser.mockResolvedValue({
+      id: 10,
+      constituency: 'Dhaka-1',
+    });
+
     globalThis.mockFindUniqueVoterElection.mockResolvedValue({
       voter_id: 10,
       election_id: 5,
@@ -162,6 +171,11 @@ describe('VoteChain BD Secure Voting and Receipt Verification Suite', () => {
       election_id: 5,
       constituency: 'Dhaka-2',
       status: 'APPROVED',
+    });
+
+    globalThis.mockFindUniqueUser.mockResolvedValue({
+      id: 10,
+      constituency: 'Dhaka-1', // wrong constituency
     });
 
     globalThis.mockFindUniqueVoterElection.mockResolvedValue(null);

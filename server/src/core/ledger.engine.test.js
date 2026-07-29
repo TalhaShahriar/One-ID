@@ -53,6 +53,7 @@ const mockPrismaTx = {
     },
     count: async () => mockRecords.length
   },
+  $executeRawUnsafe: async () => {},
   merkleBlock: {
     create: async ({ data }) => {
       const blk = { ...data, id: crypto.randomUUID() };
@@ -76,32 +77,24 @@ const mockPrisma = {
   }
 };
 
-async function runTests() {
-  console.log('🧪 Starting Shared LedgerEngine Self-Contained Test Suites...\n');
+import { describe, test, expect, beforeAll, beforeEach } from '@jest/globals';
 
-  // Test 1: append + verifyChain returns valid
-  try {
+describe('Ledger Engine Self-Contained Test Suites', () => {
+  beforeEach(() => {
     mockRecords = [];
     mockBlocks = [];
+  });
 
+  test('append + verifyChain returns valid chain state', async () => {
     const rec1 = await append('VOTE', { candidateId: 5, userId: 12 }, mockPrisma);
     const rec2 = await append('VOTE', { candidateId: 9, userId: 15 }, mockPrisma);
 
     const check = await verifyChain('VOTE', mockPrisma);
-    if (check.valid && check.totalRecords === 2) {
-      console.log('✅ TEST 1 PASSED: append + verifyChain successfully returns valid chain state.');
-    } else {
-      console.log('❌ TEST 1 FAILED:', check);
-    }
-  } catch (err) {
-    console.error('❌ TEST 1 EXCEPTION:', err);
-  }
+    expect(check.valid).toBe(true);
+    expect(check.totalRecords).toBe(2);
+  });
 
-  // Test 2: Payload tamper detected at HASH_CHAIN or RECORD_HASH layer
-  try {
-    mockRecords = [];
-    mockBlocks = [];
-
+  test('Payload tamper detected at HASH_CHAIN or RECORD_HASH layer', async () => {
     await append('TAX', { amount: 12000, filingYear: 2026 }, mockPrisma);
     await append('TAX', { amount: 45000, filingYear: 2026 }, mockPrisma);
 
@@ -109,21 +102,11 @@ async function runTests() {
     mockRecords[0].payload = { amount: 1, filingYear: 2026 };
 
     const check = await verifyChain('TAX', mockPrisma);
-    if (!check.valid && (check.layer === 'RECORD_HASH' || check.layer === 'HASH_CHAIN' || check.layer === 'HMAC_SIGNATURE')) {
-      console.log(`✅ TEST 2 PASSED: Tampering successfully caught at "${check.layer}" layer.`);
-    } else {
-      console.log('❌ TEST 2 FAILED: Tamper went undetected or registered wrong layer:', check);
-    }
-  } catch (err) {
-    console.error('❌ TEST 2 EXCEPTION:', err);
-  }
+    expect(check.valid).toBe(false);
+    expect(['RECORD_HASH', 'HASH_CHAIN', 'HMAC_SIGNATURE']).toContain(check.layer);
+  });
 
-  // Test 3: Merkle block created at exactly 50 records
-  try {
-    mockRecords = [];
-    mockBlocks = [];
-
-    console.log('⏳ Simulating 50 record additions for sector VEHICLE...');
+  test('Merkle block created at exactly 50 records', async () => {
     for (let i = 0; i < 50; i++) {
       await append('VEHICLE', { regNum: `DHAKA-METRO-KA-${1000 + i}`, owner: `User-${i}` }, mockPrisma);
     }
@@ -131,57 +114,35 @@ async function runTests() {
     const unbatchedCount = mockRecords.filter(r => r.sector === 'VEHICLE' && r.merkleBlockId === null).length;
     const batchedCount = mockRecords.filter(r => r.sector === 'VEHICLE' && r.merkleBlockId !== null).length;
 
-    if (mockBlocks.length === 1 && unbatchedCount === 0 && batchedCount === 50) {
-      console.log('✅ TEST 3 PASSED: Merkle block successfully sealed at exactly 50 records.');
-    } else {
-      console.log(`❌ TEST 3 FAILED: Blocks Count: ${mockBlocks.length}, Unbatched: ${unbatchedCount}, Batched: ${batchedCount}`);
+    expect(mockBlocks.length).toBe(1);
+    expect(unbatchedCount).toBe(0);
+    expect(batchedCount).toBe(50);
+  });
+
+  test('Merkle root tamper detected at MERKLE_ROOT layer', async () => {
+    // Generate block first
+    for (let i = 0; i < 50; i++) {
+      await append('VEHICLE_TAMPER', { id: i }, mockPrisma);
     }
-  } catch (err) {
-    console.error('❌ TEST 3 EXCEPTION:', err);
-  }
 
-  // Test 4: Merkle root tamper detected at MERKLE_ROOT layer
-  try {
-    if (mockBlocks.length > 0) {
-      // Modify block merkleRoot directly to simulate database tampering
-      const originalRoot = mockBlocks[0].merkleRoot;
-      mockBlocks[0].merkleRoot = 'f'.repeat(64);
+    const originalRoot = mockBlocks[0].merkleRoot;
+    mockBlocks[0].merkleRoot = 'f'.repeat(64);
 
-      const check = await verifyChain('VEHICLE', mockPrisma);
-      
-      // Restore root 
-      mockBlocks[0].merkleRoot = originalRoot;
+    const check = await verifyChain('VEHICLE_TAMPER', mockPrisma);
+    
+    mockBlocks[0].merkleRoot = originalRoot;
 
-      if (!check.valid && check.layer === 'MERKLE_ROOT') {
-        console.log('✅ TEST 4 PASSED: Merkle root tampering detected at MERKLE_ROOT layer correctly.');
-      } else {
-        console.log('❌ TEST 4 FAILED: Merkle root tamper went undetected or layer incorrect:', check);
-      }
-    } else {
-      console.log('❌ TEST 4 BLOCKED: No Merkle blocks generated in previous test.');
-    }
-  } catch (err) {
-    console.error('❌ TEST 4 EXCEPTION:', err);
-  }
+    expect(check.valid).toBe(false);
+    expect(check.layer).toBe('MERKLE_ROOT');
+  });
 
-  // Test 5: verifyRecordExists returns no payload fields
-  try {
-    mockRecords = [];
-    mockBlocks = [];
+  test('verifyRecordExists returns no payload fields', async () => {
     const addedObj = await append('CIVIL_REGISTRY', { certId: 'BC-992318', name: 'Zayan Haq' }, mockPrisma);
 
     const footprint = await verifyRecordExists(addedObj.id, mockPrisma);
 
-    if (footprint.found && footprint.sector === 'CIVIL_REGISTRY' && footprint.payload === undefined) {
-      console.log('✅ TEST 5 PASSED: verifyRecordExists returns correct meta headers without exposing raw payload fields.');
-    } else {
-      console.log('❌ TEST 5 FAILED: Footprint returned invalid structure or leaked payload data:', footprint);
-    }
-  } catch (err) {
-    console.error('❌ TEST 5 EXCEPTION:', err);
-  }
-
-  console.log('\n🏁 Ledger test suites completed.');
-}
-
-runTests();
+    expect(footprint.found).toBe(true);
+    expect(footprint.sector).toBe('CIVIL_REGISTRY');
+    expect(footprint.payload).toBeUndefined();
+  });
+});

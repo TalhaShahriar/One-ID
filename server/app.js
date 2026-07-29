@@ -127,10 +127,52 @@ app.get('/api/health', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('[error]', err);
-  const status = err.status || 500;
+  
+  let status = err.status || 500;
+  let errorName = 'Internal server error.';
+  let message = err.message || 'An unexpected error occurred.';
+
+  // Handle Prisma Errors
+  if (err.name === 'PrismaClientKnownRequestError') {
+    if (err.code === 'P2002') {
+      status = 409;
+      errorName = 'Conflict';
+      message = 'A record with this value already exists.';
+    } else if (err.code === 'P2025') {
+      status = 404;
+      errorName = 'Not Found';
+      message = 'The requested record could not be found.';
+    } else if (err.code === 'P2003') {
+      status = 400;
+      errorName = 'Bad Request';
+      message = 'Foreign key constraint failed.';
+    } else {
+      status = 400;
+      errorName = 'Bad Request';
+      message = 'Database operation failed.';
+    }
+  } else if (err.name === 'PrismaClientValidationError') {
+    status = 400;
+    errorName = 'Bad Request';
+    message = 'Invalid data provided to database.';
+  } else {
+    // Map standard HTTP status codes to names
+    if (status === 400) errorName = 'Bad Request';
+    else if (status === 401) errorName = 'Unauthorized';
+    else if (status === 403) errorName = 'Forbidden';
+    else if (status === 404) errorName = 'Not Found';
+    else if (status === 409) errorName = 'Conflict';
+    else if (status === 422) errorName = 'Unprocessable Entity';
+  }
+
+  // Ensure safe error messages in production for 5xx errors
+  if (process.env.NODE_ENV === 'production' && status >= 500) {
+    message = 'Access Restricted: Internal Server Error';
+  }
+
   res.status(status).json({
-    error: 'Internal server error.',
-    message: process.env.NODE_ENV === 'production' ? 'Access Restricted' : err.message
+    error: errorName,
+    message: message
   });
 });
 

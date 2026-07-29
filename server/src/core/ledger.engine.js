@@ -153,6 +153,11 @@ export async function append(sector, payload, dbClient = prisma) {
   const client = dbClient || prisma;
 
   const executeLogic = async (tx) => {
+    // Acquire transaction-level exclusive advisory lock for this sector
+    // Using a deterministic integer ID for the sector
+    const lockId = crypto.createHash('sha256').update(sector).digest().readInt32BE(0);
+    await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${lockId})`);
+
     const lastRecord = await tx.ledgerRecord.findFirst({
       where: { sector },
       orderBy: { sequenceNumber: 'desc' }

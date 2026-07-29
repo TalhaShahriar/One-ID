@@ -81,6 +81,8 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${electionId})`);
+
       const activeCheck = await tx.voterElection.findUnique({
         where: {
           voter_id_election_id: {
@@ -377,6 +379,8 @@ router.post('/seed-votes', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN
       const candidate = candidates[Math.floor(Math.random() * candidates.length)];
       
       const result = await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${electionId})`);
+
         const lastVote = await tx.vote.findFirst({
           where: { election_id: electionId },
           orderBy: { cast_at: 'desc' }
