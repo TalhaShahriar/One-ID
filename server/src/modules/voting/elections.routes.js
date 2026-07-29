@@ -200,7 +200,11 @@ router.get('/:id', authenticateJWT, async (req, res, next) => {
     };
 
     if (role === 'VOTER') {
-      candidateFilter.constituency = req.user.constituency;
+      const dbUser = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { constituency: true }
+      });
+      candidateFilter.constituency = dbUser ? dbUser.constituency : req.user.constituency;
     }
 
     const election = await prisma.election.findUnique({
