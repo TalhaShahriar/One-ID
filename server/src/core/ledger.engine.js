@@ -151,7 +151,8 @@ export async function sealMerkleBlock(sector, lastSeqNo, tx = prisma) {
  */
 export async function append(sector, payload, dbClient = prisma) {
   const client = dbClient || prisma;
-  return await client.$transaction(async (tx) => {
+
+  const executeLogic = async (tx) => {
     const lastRecord = await tx.ledgerRecord.findFirst({
       where: { sector },
       orderBy: { sequenceNumber: 'desc' }
@@ -193,7 +194,13 @@ export async function append(sector, payload, dbClient = prisma) {
     }
 
     return newRecord;
-  });
+  };
+
+  if (typeof client.$transaction === 'function') {
+    return await client.$transaction(executeLogic);
+  } else {
+    return await executeLogic(client);
+  }
 }
 
 // Alias for backward compatibility
