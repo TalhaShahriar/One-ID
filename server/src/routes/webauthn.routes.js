@@ -232,10 +232,10 @@ router.post('/login-options', async (req, res, next) => {
           webAuthnCredentials: true
         }
       });
-    }
 
-    if (!user) {
-      return res.status(401).json({ error: 'No citizen found with this identifier.' });
+      if (!user) {
+        return res.status(401).json({ error: 'No citizen found with this identifier.' });
+      }
     }
 
     const rpID = getRpID(req);

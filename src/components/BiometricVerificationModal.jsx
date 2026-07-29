@@ -179,22 +179,8 @@ export default function BiometricVerificationModal({
             biometricType: activeTab === 'fingerprint' ? 'Touch ID Fingerprint' : 'Face ID Recognition'
           });
         } catch (netErr) {
-          console.warn('Network request failed during biometric verify, activating offline fallback session:', netErr);
-          const savedUser = JSON.parse(localStorage.getItem('votechain_user') || 'null');
-          const savedToken = localStorage.getItem('votechain_token');
-          verifyRes = {
-            data: {
-              verified: true,
-              token: savedToken || 'biometric_session_token',
-              user: savedUser || {
-                id: 1,
-                name: 'Verified Citizen',
-                email: identifier || 'citizen@oneid.gov.bd',
-                role: 'VOTER',
-                constituency: 'Dhaka-1'
-              }
-            }
-          };
+          console.warn('Biometric verify request failed:', netErr);
+          throw netErr;
         }
 
         if (verifyRes.data?.verified) {
