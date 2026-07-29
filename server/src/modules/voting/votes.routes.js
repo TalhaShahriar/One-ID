@@ -46,7 +46,11 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
       return res.status(400).json({ error: 'Selected candidate is invalid or not approved for this election.' });
     }
 
-    if (candidate.constituency !== req.user.constituency) {
+    const voter = await prisma.user.findUnique({
+      where: { id: parseInt(req.user.userId, 10) }
+    });
+
+    if (candidate.constituency !== voter.constituency) {
       return res.status(403).json({ error: 'You are not eligible to vote for this constituency' });
     }
 
@@ -105,7 +109,7 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
           id: newVoteId,
           election_id: electionId,
           candidate_id: candidateId,
-          constituency: req.user.constituency,
+          constituency: voter.constituency,
           cast_at: castAt,
           prev_hash: prevHash,
           vote_hash: voteHash
@@ -142,7 +146,7 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
       const ledgerRecord = await appendLedgerRecord('VOTE', {
         eventType: 'BALLOT_CAST',
         electionId,
-        constituency: req.user.constituency || 'NATIONAL',
+        constituency: voter.constituency || 'NATIONAL',
         voteId: newVoteId,
         integrityHash: voteHash
       }, tx);
@@ -155,7 +159,7 @@ router.post('/cast', authenticateJWT, authorizeRoles('VOTER', 'CANDIDATE'), asyn
       const socketPayload = {
         election_id: electionId,
         candidate_id: candidateId,
-        constituency: req.user.constituency
+        constituency: voter.constituency
       };
       io.to("election:" + electionId).emit("vote:cast", socketPayload);
       io.to("election_" + electionId).emit("vote:cast", socketPayload);
