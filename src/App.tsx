@@ -298,7 +298,7 @@ function AppNavbar() {
           )}
 
           {/* Tax Admin hub */}
-          {(user.role === 'TAX_ADMIN' || user.role === 'ADMIN') && (
+          {(user.role === 'TAX_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
               <Link 
                 to="/tax/admin" 
@@ -312,7 +312,7 @@ function AppNavbar() {
           )}
 
           {/* Vehicle Admin hub */}
-          {(user.role === 'VEHICLE_ADMIN' || user.role === 'ADMIN') && (
+          {(user.role === 'VEHICLE_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
               <Link 
                 to="/vehicle/admin" 
@@ -326,7 +326,7 @@ function AppNavbar() {
           )}
 
           {/* Property Admin hub */}
-          {(user.role === 'PROPERTY_ADMIN' || user.role === 'ADMIN') && (
+          {(user.role === 'PROPERTY_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
               <Link 
                 to="/property/admin" 
@@ -340,7 +340,7 @@ function AppNavbar() {
           )}
 
           {/* Kazi Admin hub */}
-          {(user.role === 'KAZI_ADMIN' || user.role === 'ADMIN') && (
+          {(user.role === 'KAZI_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
               <Link 
                 to="/civil-registry/kazi" 
@@ -354,7 +354,7 @@ function AppNavbar() {
           )}
 
           {/* UP Chairman hub */}
-          {(user.role === 'LOCAL_AUTHORITY_ADMIN' || user.role === 'ADMIN') && (
+          {(user.role === 'LOCAL_AUTHORITY_ADMIN' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-2">
               <Link 
                 to="/civil-registry/chairman" 

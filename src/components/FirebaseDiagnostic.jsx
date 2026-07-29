@@ -23,8 +23,8 @@ export const showFirebaseDiagnosticToast = (err, context = 'OTP Verification') =
         </div>
       )}
       {err.code === 'auth/billing-not-enabled' && (
-        <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-          <strong>Tip:</strong> SMS authentication now requires a Blaze (pay-as-you-go) billing plan in Firebase.
+        <div className="text-xs text-amber-800 bg-amber-50 p-2 rounded border border-amber-200">
+          <strong>Free Testing Tip:</strong> Real SMS requires a Firebase Blaze plan, but you can test <strong>100% FREE</strong> by adding a test phone number in Firebase Console (Auth &gt; Sign-in method &gt; Phone &gt; Test Phone Numbers), or simply type the Dev PIN <code className="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold">123456</code> to log in right now!
         </div>
       )}
       {err.code === 'auth/unauthorized-domain' && (

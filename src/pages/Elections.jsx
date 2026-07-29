@@ -6,6 +6,7 @@ import { Calendar, Vote, Clock, AlertCircle, ShieldCheck, ArrowRight, MapPin, Us
 import api from '../lib/api.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import LiveBDClock from '../shared/components/LiveBDClock.jsx';
+import VotingCountdown from '../shared/components/VotingCountdown.jsx';
 
 export default function Elections() {
   const { user } = useAuth();
@@ -161,15 +162,13 @@ export default function Elections() {
                   {/* CLOCK / SCHEDULERS */}
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" /> Time Remaining:
+                      <Clock className="h-3.5 w-3.5" /> Voting Schedule:
                     </span>
-                    <span className={`font-mono font-bold px-2 py-0.5 rounded border text-[11px] ${
-                      isClosed 
-                        ? 'bg-red-50 border-red-200 text-red-600' 
-                        : 'bg-emerald-50 border-emerald-200 text-[#006a4e]'
-                    }`}>
-                      {timeRemaining}
-                    </span>
+                    <VotingCountdown 
+                      startAt={election.start_at} 
+                      endAt={election.end_at} 
+                      status={election.status} 
+                    />
                   </div>
 
                   {/* ACTION TRIGGER BUTTON */}

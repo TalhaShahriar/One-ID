@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '../../lib/api.js';
 import { toast } from 'sonner';
+import VotingCountdown from '../../shared/components/VotingCountdown.jsx';
 
 /**
  * Candidate Profile Tracker Dashboard.
@@ -168,9 +169,16 @@ export default function CandidateDashboard() {
                 <div className="pt-2">
                   <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Assembly Status:</span>
-                    <span className="bg-sky-50 border border-sky-100 text-sky-600 px-2.5 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">
-                      {app.election.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-sky-50 border border-sky-100 text-sky-600 px-2.5 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">
+                        {app.election.status}
+                      </span>
+                      <VotingCountdown 
+                        startAt={app.election.start_at} 
+                        endAt={app.election.end_at} 
+                        status={app.election.status} 
+                      />
+                    </div>
                   </div>
                 </div>
               )}

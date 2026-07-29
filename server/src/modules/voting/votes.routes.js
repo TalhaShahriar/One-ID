@@ -353,7 +353,7 @@ router.post('/seed-votes', authenticateJWT, authorizeRoles('ADMIN', 'SUPER_ADMIN
     const voters = await prisma.user.findMany({
       where: {
         role: 'VOTER',
-        voted_elections: {
+        voter_elections: {
           none: {
             election_id: electionId
           }

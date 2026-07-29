@@ -61,6 +61,7 @@ export default function GlobalSearch() {
   const filteredModules = MODULES.filter((mod) => {
     // Check role access
     const hasRoleAccess =
+      user.role === 'SUPER_ADMIN' ||
       !mod.role && !mod.roles ||
       (mod.role && user.role === mod.role) ||
       (mod.roles && mod.roles.includes(user.role));

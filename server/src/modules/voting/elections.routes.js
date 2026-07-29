@@ -97,12 +97,14 @@ router.get('/', authenticateJWT, async (req, res, next) => {
     } 
     
     if (role === 'VOTER') {
-      const voterConstituency = req.user.constituency;
+      const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId || req.user.id, 10) }});
+      const voterConstituency = user?.constituency || req.user.constituency;
       const elections = await prisma.election.findMany({
         where: {
           status: { in: ['ACTIVE', 'CLOSED', 'RESULTS_PUBLISHED'] },
           OR: [
             { constituency_scope: voterConstituency },
+            { constituency_scope: { contains: voterConstituency, mode: 'insensitive' } },
             { constituency_scope: 'ALL' },
             { constituency_scope: 'NATIONAL' }
           ]

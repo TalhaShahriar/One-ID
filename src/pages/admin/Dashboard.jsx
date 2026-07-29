@@ -28,6 +28,7 @@ import { useSocket } from '../../hooks/useSocket.js';
 import { useElectionLive } from '../../hooks/useElectionLive.js';
 import QRScanner from '../../shared/components/QRScanner.jsx';
 import VoterDemographicsChart from './VoterDemographicsChart.jsx';
+import VotingCountdown from '../../shared/components/VotingCountdown.jsx';
 
 // Pre-defined color wheel representing Bangladeshi democratic landscape
 const PARTY_COLORS = {
@@ -499,20 +500,29 @@ export default function AdminDashboard() {
                 <h3 className="text-base font-black text-slate-800 uppercase tracking-tight mt-0.5">Live Contest Stream</h3>
               </div>
 
-              {/* CONTEST SELECTOR DROPDOWN */}
-              <select
-                id="live-election-dropdown"
-                value={selectedElectionId}
-                onChange={(e) => setSelectedElectionId(e.target.value)}
-                className="bg-slate-50 border border-slate-300 font-sans font-bold text-xs text-slate-700 px-3.5 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#006a4e]/10 focus:border-[#006a4e]"
-              >
-                <option value="" disabled>Choose Active Election...</option>
-                {elections.map((elec) => (
-                  <option key={elec.id} value={elec.id}>
-                    {elec.title} ({elec.status})
-                  </option>
-                ))}
-              </select>
+              {/* CONTEST SELECTOR DROPDOWN & COUNTDOWN */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {selectedElectionObj && (
+                  <VotingCountdown 
+                    startAt={selectedElectionObj.start_at} 
+                    endAt={selectedElectionObj.end_at} 
+                    status={selectedElectionObj.status} 
+                  />
+                )}
+                <select
+                  id="live-election-dropdown"
+                  value={selectedElectionId}
+                  onChange={(e) => setSelectedElectionId(e.target.value)}
+                  className="bg-slate-50 border border-slate-300 font-sans font-bold text-xs text-slate-700 px-3.5 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#006a4e]/10 focus:border-[#006a4e]"
+                >
+                  <option value="" disabled>Choose Active Election...</option>
+                  {elections.map((elec) => (
+                    <option key={elec.id} value={elec.id}>
+                      {elec.title} ({elec.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {selectedElectionId && selectedElectionObj ? (

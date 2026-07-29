@@ -76,7 +76,7 @@ export default function Register() {
         nid: data.nid,
         password: data.password,
         role: 'VOTER', // Citizens register as voters by default on OneID
-        constituency: `${data.division}-Seat`, // satisfing backend constituency constraint
+        constituency: data.division, // satisfying backend constituency constraint
         division: data.division,
         district: data.district,
         upazila: data.upazila,

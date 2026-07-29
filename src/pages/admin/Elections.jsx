@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../../lib/api.js';
 import { toast } from 'sonner';
+import VotingCountdown from '../../shared/components/VotingCountdown.jsx';
 
 // Bangladesh Standard Time is UTC+6.
 // datetime-local inputs return strings like "2026-07-29T11:25" with NO timezone.
@@ -310,11 +311,18 @@ export default function AdminElections() {
                     </div>
                   </td>
                   <td className="px-6 py-4">{getStatusBadge(el.status)}</td>
-                  <td className="px-6 py-4">
-                    <div className="text-xs text-slate-600 font-medium flex items-center gap-1">
+                  <td className="px-6 py-4 font-sans">
+                    <div className="mb-1.5">
+                      <VotingCountdown 
+                        startAt={el.start_at} 
+                        endAt={el.end_at} 
+                        status={el.status} 
+                      />
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5 inline text-slate-400" /> Start: {new Date(el.start_at).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'short', timeStyle: 'short' })}
                     </div>
-                    <div className="text-xs text-slate-400 font-medium mt-1 flex items-center gap-1">
+                    <div className="text-[11px] text-slate-400 font-medium mt-0.5 flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5 inline text-slate-400" /> End: {new Date(el.end_at).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'short', timeStyle: 'short' })}
                     </div>
                   </td>

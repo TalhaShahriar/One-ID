@@ -16,6 +16,7 @@ import {
 import api from '../lib/api.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { toast } from 'sonner';
+import VotingCountdown from '../shared/components/VotingCountdown.jsx';
 
 export default function Vote() {
   const { id } = useParams();
@@ -134,6 +135,13 @@ export default function Vote() {
             <span className="bg-white/10 text-slate-200 border border-white/20 px-2.5 py-0.5 rounded-md text-[10px] font-bold font-mono">
               {election?.election_type}
             </span>
+            {election && (
+              <VotingCountdown 
+                startAt={election.start_at} 
+                endAt={election.end_at} 
+                status={election.status} 
+              />
+            )}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight uppercase">
             {election?.title}

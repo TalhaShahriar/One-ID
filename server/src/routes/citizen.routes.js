@@ -337,7 +337,10 @@ router.patch('/profile', authenticateJWT, async (req, res, next) => {
     const updateMap = {};
     if (name) updateMap.name = name;
     if (phone) updateMap.phone = phone;
-    if (division) updateMap.division = division;
+    if (division) {
+      updateMap.division = division;
+      updateMap.constituency = division;
+    }
     if (district) updateMap.district = district;
     if (upazila) updateMap.upazila = upazila;
     if (occupation) updateMap.occupation = occupation;
